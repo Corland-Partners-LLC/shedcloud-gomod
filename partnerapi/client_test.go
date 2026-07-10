@@ -283,6 +283,203 @@ func TestQuoteListConvertedQuery(t *testing.T) {
 	}
 }
 
+func TestLocationListBooleanFilters(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/partner/v1/locations" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("salesLot") != "true" {
+			t.Errorf("salesLot = %q", r.URL.Query().Get("salesLot"))
+		}
+		// Non-nil false pointers must still be sent.
+		if r.URL.Query().Get("plant") != "false" {
+			t.Errorf("plant = %q", r.URL.Query().Get("plant"))
+		}
+		if r.URL.Query().Has("active") {
+			t.Errorf("nil active must not be sent, got %q", r.URL.Query().Get("active"))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{{
+				"id": "loc-1", "name": "Dallas Lot", "code": "DAL01",
+				"active": true, "salesLot": true, "plant": false,
+			}},
+			"page": 1, "limit": 50, "total": 1,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	salesLot, plant := true, false
+	res, err := client.Locations.List(context.Background(), partnerapi.LocationListParams{
+		SalesLot: &salesLot,
+		Plant:    &plant,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Data) != 1 || res.Data[0].Code != "DAL01" || !res.Data[0].SalesLot {
+		t.Fatalf("unexpected response: %+v", res)
+	}
+}
+
+func TestLocationCreate(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/partner/v1/locations" {
+			t.Errorf("%s %s", r.Method, r.URL.Path)
+		}
+		body, _ := io.ReadAll(r.Body)
+		var got map[string]any
+		_ = json.Unmarshal(body, &got)
+		if got["name"] != "Fort Worth Lot" || got["code"] != "FTW01" || got["salesLot"] != true {
+			t.Errorf("body = %s", body)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "loc-2", "name": "Fort Worth Lot", "code": "FTW01",
+			"active": true, "salesLot": true, "plant": false,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	salesLot := true
+	loc, err := client.Locations.Create(context.Background(), partnerapi.LocationCreateRequest{
+		Name:     "Fort Worth Lot",
+		Code:     "FTW01",
+		Address:  "500 Elm St",
+		SalesLot: &salesLot,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loc.ID != "loc-2" {
+		t.Fatalf("id = %q", loc.ID)
+	}
+}
+
+func TestCustomerCreateAndPatch(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			if r.URL.Path != "/partner/v1/customers" {
+				t.Errorf("path = %s", r.URL.Path)
+			}
+			body, _ := io.ReadAll(r.Body)
+			var got map[string]string
+			_ = json.Unmarshal(body, &got)
+			if got["email"] != "jane@example.com" || got["name"] != "Jane Smith" {
+				t.Errorf("body = %s", body)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "cust-1", "name": "Jane Smith", "email": "jane@example.com", "active": true,
+			})
+		case http.MethodPatch:
+			if r.URL.Path != "/partner/v1/customers/cust-1" {
+				t.Errorf("path = %s", r.URL.Path)
+			}
+			body, _ := io.ReadAll(r.Body)
+			var got map[string]any
+			_ = json.Unmarshal(body, &got)
+			if got["phone"] != "555-0100" || len(got) != 1 {
+				t.Errorf("body = %s", body)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "cust-1", "phone": "555-0100", "active": true,
+			})
+		default:
+			t.Errorf("unexpected method %s", r.Method)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	created, err := client.Customers.Create(context.Background(), partnerapi.CustomerCreateRequest{
+		Email: "jane@example.com",
+		Name:  "Jane Smith",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ID != "cust-1" {
+		t.Fatalf("id = %q", created.ID)
+	}
+
+	updated, err := client.Customers.Update(context.Background(), "cust-1", partnerapi.CustomerPatchRequest{
+		Phone: "555-0100",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Phone != "555-0100" {
+		t.Fatalf("phone = %q", updated.Phone)
+	}
+}
+
+func TestProductList(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/partner/v1/products" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("search") != "barn" || r.URL.Query().Get("active") != "true" {
+			t.Errorf("query = %s", r.URL.RawQuery)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{{
+				"id": "prod-1", "name": "12x24 Lofted Barn", "sku": "LB-1224",
+				"price": 8995.5, "width": 12, "length": 24, "active": true,
+			}},
+			"page": 1, "limit": 50, "total": 1,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	active := true
+	res, err := client.Products.List(context.Background(), partnerapi.ProductListParams{
+		Search: "barn",
+		Active: &active,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Data) != 1 || res.Data[0].Price != 8995.5 || res.Data[0].SKU != "LB-1224" {
+		t.Fatalf("unexpected response: %+v", res)
+	}
+}
+
 func TestNewRequiresAuth(t *testing.T) {
 	t.Parallel()
 	if _, err := partnerapi.New(partnerapi.Options{}); err == nil {

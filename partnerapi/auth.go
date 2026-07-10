@@ -39,12 +39,12 @@ type cachedToken struct {
 
 // authProvider resolves a bearer token for Partner API requests.
 type authProvider struct {
-	baseURL  string
-	auth     Auth
-	httpDo   func(*http.Request) (*http.Response, error)
-	skew     time.Duration
-	mu       sync.Mutex
-	cached   *cachedToken
+	baseURL string
+	auth    Auth
+	httpDo  func(*http.Request) (*http.Response, error)
+	skew    time.Duration
+	mu      sync.Mutex
+	cached  *cachedToken
 }
 
 func newAuthProvider(baseURL string, auth Auth, httpDo func(*http.Request) (*http.Response, error), skew time.Duration) *authProvider {

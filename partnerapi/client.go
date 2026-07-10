@@ -19,6 +19,9 @@ type Client struct {
 	Quotes     *QuotesService
 	Orders     *OrdersService
 	WorkOrders *WorkOrdersService
+	Locations  *LocationsService
+	Customers  *CustomersService
+	Products   *ProductsService
 
 	// BaseURL is the resolved API host used for all requests.
 	BaseURL string
@@ -93,6 +96,9 @@ func New(opts Options) (*Client, error) {
 	c.Quotes = &QuotesService{c: c}
 	c.Orders = &OrdersService{c: c}
 	c.WorkOrders = &WorkOrdersService{c: c}
+	c.Locations = &LocationsService{c: c}
+	c.Customers = &CustomersService{c: c}
+	c.Products = &ProductsService{c: c}
 	return c, nil
 }
 

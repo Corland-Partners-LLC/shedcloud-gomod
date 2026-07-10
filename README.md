@@ -91,6 +91,9 @@ Create credentials in the ShedCloud portal under **Settings → Developer API**.
 | `client.Quotes` | `GET/PATCH /partner/v1/quotes`, `POST .../status` |
 | `client.Orders` | `GET/PATCH /partner/v1/orders`, `POST .../status` |
 | `client.WorkOrders` | `GET/PATCH /partner/v1/work-orders`, `POST .../status` |
+| `client.Locations` | `GET/POST/PATCH /partner/v1/locations` |
+| `client.Customers` | `GET/POST/PATCH /partner/v1/customers` |
+| `client.Products` | `GET /partner/v1/products` (read-only catalog) |
 
 ### Examples
 

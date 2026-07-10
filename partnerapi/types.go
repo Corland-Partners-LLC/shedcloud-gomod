@@ -130,6 +130,60 @@ type WorkOrderItem struct {
 	UpdatedAt       string          `json:"updatedAt,omitempty"`
 }
 
+// LocationItem is one full location record (sales lot, plant, warehouse).
+type LocationItem struct {
+	ID            string   `json:"id"`
+	Name          string   `json:"name,omitempty"`
+	Slug          string   `json:"slug,omitempty"`
+	Code          string   `json:"code,omitempty"`
+	Address       string   `json:"address,omitempty"`
+	City          string   `json:"city,omitempty"`
+	State         string   `json:"state,omitempty"`
+	ZipCode       string   `json:"zipCode,omitempty"`
+	Phone         string   `json:"phone,omitempty"`
+	ContactPerson string   `json:"contactPerson,omitempty"`
+	ContactEmail  string   `json:"contactEmail,omitempty"`
+	Latitude      *float64 `json:"latitude,omitempty"`
+	Longitude     *float64 `json:"longitude,omitempty"`
+	Active        bool     `json:"active"`
+	SalesLot      bool     `json:"salesLot"`
+	Plant         bool     `json:"plant"`
+	CreatedAt     string   `json:"createdAt,omitempty"`
+	UpdatedAt     string   `json:"updatedAt,omitempty"`
+}
+
+// CustomerItem is one full customer record.
+type CustomerItem struct {
+	ID            string `json:"id"`
+	Name          string `json:"name,omitempty"`
+	ContactName   string `json:"contactName,omitempty"`
+	ContactPerson string `json:"contactPerson,omitempty"`
+	Email         string `json:"email,omitempty"`
+	Phone         string `json:"phone,omitempty"`
+	Address       string `json:"address,omitempty"`
+	City          string `json:"city,omitempty"`
+	State         string `json:"state,omitempty"`
+	ZipCode       string `json:"zipCode,omitempty"`
+	Code          string `json:"code,omitempty"`
+	Active        bool   `json:"active"`
+	CreatedAt     string `json:"createdAt,omitempty"`
+	UpdatedAt     string `json:"updatedAt,omitempty"`
+}
+
+// ProductItem is one catalog product (read-only).
+type ProductItem struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name,omitempty"`
+	Description string  `json:"description,omitempty"`
+	SKU         string  `json:"sku,omitempty"`
+	Price       float64 `json:"price"`
+	Width       float64 `json:"width,omitempty"`
+	Length      float64 `json:"length,omitempty"`
+	Active      bool    `json:"active"`
+	CreatedAt   string  `json:"createdAt,omitempty"`
+	UpdatedAt   string  `json:"updatedAt,omitempty"`
+}
+
 // PaginationParams are shared by every list endpoint.
 type PaginationParams struct {
 	Page  int `json:"page,omitempty"`
@@ -195,6 +249,47 @@ type WorkOrderListParams struct {
 	UpdatedTo     string    `json:"updatedTo,omitempty"`
 }
 
+// LocationListParams are query params for GET /partner/v1/locations.
+type LocationListParams struct {
+	PaginationParams
+	Search string    `json:"search,omitempty"`
+	Sort   string    `json:"sort,omitempty"` // name | code | city | createdAt | updatedAt
+	Order  SortOrder `json:"order,omitempty"`
+	// Boolean flag filters apply only when non-nil (so false is still sent).
+	Active   *bool `json:"active,omitempty"`
+	SalesLot *bool `json:"salesLot,omitempty"`
+	Plant    *bool `json:"plant,omitempty"`
+}
+
+// CustomerListParams are query params for GET /partner/v1/customers.
+type CustomerListParams struct {
+	PaginationParams
+	Search      string    `json:"search,omitempty"`
+	Sort        string    `json:"sort,omitempty"` // name | email | createdAt | updatedAt
+	Order       SortOrder `json:"order,omitempty"`
+	Email       string    `json:"email,omitempty"` // substring match
+	Phone       string    `json:"phone,omitempty"` // substring match
+	CreatedFrom string    `json:"createdFrom,omitempty"`
+	CreatedTo   string    `json:"createdTo,omitempty"`
+	UpdatedFrom string    `json:"updatedFrom,omitempty"`
+	UpdatedTo   string    `json:"updatedTo,omitempty"`
+}
+
+// ProductListParams are query params for GET /partner/v1/products.
+type ProductListParams struct {
+	PaginationParams
+	Search string    `json:"search,omitempty"`
+	Sort   string    `json:"sort,omitempty"` // name | sku | price | createdAt | updatedAt
+	Order  SortOrder `json:"order,omitempty"`
+	SKU    string    `json:"sku,omitempty"` // substring match
+	// Active filters by the active flag when non-nil.
+	Active      *bool  `json:"active,omitempty"`
+	CreatedFrom string `json:"createdFrom,omitempty"`
+	CreatedTo   string `json:"createdTo,omitempty"`
+	UpdatedFrom string `json:"updatedFrom,omitempty"`
+	UpdatedTo   string `json:"updatedTo,omitempty"`
+}
+
 // LeadPatchRequest is the body for PATCH /partner/v1/leads/{id}.
 type LeadPatchRequest struct {
 	SalesLocation    string `json:"salesLocation,omitempty"`
@@ -228,6 +323,77 @@ type WorkOrderPatchRequest struct {
 	Description      string `json:"description,omitempty"`
 	BuildingLocation string `json:"buildingLocation,omitempty"`
 	PromisedDate     string `json:"promisedDate,omitempty"`
+}
+
+// LocationCreateRequest is the body for POST /partner/v1/locations.
+// Name is required, plus either an Address or a Latitude/Longitude pair
+// (provided together).
+type LocationCreateRequest struct {
+	Name          string   `json:"name"`
+	Slug          string   `json:"slug,omitempty"`
+	Code          string   `json:"code,omitempty"`
+	Address       string   `json:"address,omitempty"`
+	City          string   `json:"city,omitempty"`
+	State         string   `json:"state,omitempty"`
+	ZipCode       string   `json:"zipCode,omitempty"`
+	Phone         string   `json:"phone,omitempty"`
+	ContactPerson string   `json:"contactPerson,omitempty"`
+	ContactEmail  string   `json:"contactEmail,omitempty"`
+	Latitude      *float64 `json:"latitude,omitempty"`
+	Longitude     *float64 `json:"longitude,omitempty"`
+	Active        *bool    `json:"active,omitempty"`
+	SalesLot      *bool    `json:"salesLot,omitempty"`
+	Plant         *bool    `json:"plant,omitempty"`
+}
+
+// LocationPatchRequest is the body for PATCH /partner/v1/locations/{id}.
+// Same key set as create, all optional.
+type LocationPatchRequest struct {
+	Name          string   `json:"name,omitempty"`
+	Slug          string   `json:"slug,omitempty"`
+	Code          string   `json:"code,omitempty"`
+	Address       string   `json:"address,omitempty"`
+	City          string   `json:"city,omitempty"`
+	State         string   `json:"state,omitempty"`
+	ZipCode       string   `json:"zipCode,omitempty"`
+	Phone         string   `json:"phone,omitempty"`
+	ContactPerson string   `json:"contactPerson,omitempty"`
+	ContactEmail  string   `json:"contactEmail,omitempty"`
+	Latitude      *float64 `json:"latitude,omitempty"`
+	Longitude     *float64 `json:"longitude,omitempty"`
+	Active        *bool    `json:"active,omitempty"`
+	SalesLot      *bool    `json:"salesLot,omitempty"`
+	Plant         *bool    `json:"plant,omitempty"`
+}
+
+// CustomerCreateRequest is the body for POST /partner/v1/customers.
+// Email is required and must be unique within the company.
+type CustomerCreateRequest struct {
+	Email         string `json:"email"`
+	Name          string `json:"name,omitempty"`
+	ContactName   string `json:"contactName,omitempty"`
+	ContactPerson string `json:"contactPerson,omitempty"`
+	Phone         string `json:"phone,omitempty"`
+	Address       string `json:"address,omitempty"`
+	City          string `json:"city,omitempty"`
+	State         string `json:"state,omitempty"`
+	ZipCode       string `json:"zipCode,omitempty"`
+	Code          string `json:"code,omitempty"`
+}
+
+// CustomerPatchRequest is the body for PATCH /partner/v1/customers/{id}.
+type CustomerPatchRequest struct {
+	Name          string `json:"name,omitempty"`
+	ContactName   string `json:"contactName,omitempty"`
+	ContactPerson string `json:"contactPerson,omitempty"`
+	Email         string `json:"email,omitempty"`
+	Phone         string `json:"phone,omitempty"`
+	Address       string `json:"address,omitempty"`
+	City          string `json:"city,omitempty"`
+	State         string `json:"state,omitempty"`
+	ZipCode       string `json:"zipCode,omitempty"`
+	Code          string `json:"code,omitempty"`
+	Active        *bool  `json:"active,omitempty"`
 }
 
 // StatusUpdateRequest is the body for POST /partner/v1/{resource}/{id}/status.
