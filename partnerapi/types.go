@@ -47,6 +47,18 @@ type PartnerPricing struct {
 	PaymentType string `json:"paymentType,omitempty"`
 }
 
+// LotStockAttributes is the exterior configuration of a lot-stock unit — the
+// same values ShedCloud's work-order detail page shows. Custom colors surface
+// as "Custom Color - #HEX".
+type LotStockAttributes struct {
+	Siding      string `json:"siding,omitempty"`
+	SidingColor string `json:"sidingColor,omitempty"`
+	TrimColor   string `json:"trimColor,omitempty"`
+	// RoofMaterial is "Metal Roof" or "Shingle Roof".
+	RoofMaterial string `json:"roofMaterial,omitempty"`
+	RoofColor    string `json:"roofColor,omitempty"`
+}
+
 // LotStockItem is one on-lot inventory row.
 type LotStockItem struct {
 	ID           string   `json:"id"`
@@ -60,7 +72,9 @@ type LotStockItem struct {
 	LocationName string   `json:"locationName,omitempty"`
 	LocationSlug string   `json:"locationSlug,omitempty"`
 	Images       []string `json:"images,omitempty"`
-	Sold         bool     `json:"sold"`
+	// Attributes is nil when the unit has no configurator.
+	Attributes *LotStockAttributes `json:"attributes,omitempty"`
+	Sold       bool                `json:"sold"`
 }
 
 // LeadItem is one lead.
@@ -148,8 +162,20 @@ type LocationItem struct {
 	Active        bool     `json:"active"`
 	SalesLot      bool     `json:"salesLot"`
 	Plant         bool     `json:"plant"`
-	CreatedAt     string   `json:"createdAt,omitempty"`
-	UpdatedAt     string   `json:"updatedAt,omitempty"`
+	// StoreHours is the weekly store schedule keyed by day ("mon".."sun").
+	// Empty when the location has no schedule configured.
+	StoreHours map[string]StoreHoursDay `json:"storeHours,omitempty"`
+	CreatedAt  string                   `json:"createdAt,omitempty"`
+	UpdatedAt  string                   `json:"updatedAt,omitempty"`
+}
+
+// StoreHoursDay is one day inside LocationItem.StoreHours. Times are 24-hour
+// "HH:MM" strings in the location's local time. Disabled days may still carry
+// their last from/to values.
+type StoreHoursDay struct {
+	Enabled bool   `json:"enabled"`
+	From    string `json:"from,omitempty"`
+	To      string `json:"to,omitempty"`
 }
 
 // CustomerItem is one full customer record.
@@ -170,7 +196,8 @@ type CustomerItem struct {
 	UpdatedAt     string `json:"updatedAt,omitempty"`
 }
 
-// ProductItem is one catalog product (read-only).
+// ProductItem is one finished catalog product (read-only). Raw materials and
+// kits are never returned by the Partner API.
 type ProductItem struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name,omitempty"`
@@ -180,8 +207,11 @@ type ProductItem struct {
 	Width       float64 `json:"width,omitempty"`
 	Length      float64 `json:"length,omitempty"`
 	Active      bool    `json:"active"`
-	CreatedAt   string  `json:"createdAt,omitempty"`
-	UpdatedAt   string  `json:"updatedAt,omitempty"`
+	// Images are ready-to-use public URLs: the uploaded gallery (upload
+	// order) first, then legacy image slots on the product record.
+	Images    []string `json:"images,omitempty"`
+	CreatedAt string   `json:"createdAt,omitempty"`
+	UpdatedAt string   `json:"updatedAt,omitempty"`
 }
 
 // PaginationParams are shared by every list endpoint.
@@ -193,7 +223,10 @@ type PaginationParams struct {
 // LotStockListParams are query params for GET /partner/v1/lot-stock.
 type LotStockListParams struct {
 	PaginationParams
-	PurchaseType string    `json:"purchaseType,omitempty"` // ALL | Lot Stock | Rental Return | Immediate Sale
+	// PurchaseType is ALL (the default — no category filter), Lot Stock,
+	// Rental Return, or Immediate Sale. Case-insensitive; hyphens and
+	// underscores are accepted (e.g. "lot-stock").
+	PurchaseType string    `json:"purchaseType,omitempty"`
 	Location     string    `json:"location,omitempty"`
 	Search       string    `json:"search,omitempty"`
 	Sort         string    `json:"sort,omitempty"` // serialNumber | title | price | createdAt
@@ -297,6 +330,68 @@ type LeadPatchRequest struct {
 	SalespersonEmail string `json:"salespersonEmail,omitempty"`
 }
 
+// LeadCreateCustomer is the customer block of LeadCreateRequest. At least one
+// of name, email, or phone is required.
+type LeadCreateCustomer struct {
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+	Phone string `json:"phone,omitempty"`
+}
+
+// LeadCreateRequest is the body for POST /partner/v1/leads. When the
+// salesperson fields are omitted, the location's lead-routing strategy
+// auto-assigns one.
+type LeadCreateRequest struct {
+	LocationID       string             `json:"locationId"`
+	Customer         LeadCreateCustomer `json:"customer"`
+	SalespersonName  string             `json:"salespersonName,omitempty"`
+	SalespersonEmail string             `json:"salespersonEmail,omitempty"`
+}
+
+// QuoteConvertRequest is the optional body for
+// POST /partner/v1/quotes/{id}/convert — overrides the salesperson copied
+// from the quote.
+type QuoteConvertRequest struct {
+	SalespersonName  string `json:"salespersonName,omitempty"`
+	SalespersonEmail string `json:"salespersonEmail,omitempty"`
+}
+
+// QuoteCreateCustomer is the customer block of QuoteCreateRequest. An email,
+// or a name + phone, is required; the customer is matched by email when one
+// already exists, otherwise created.
+type QuoteCreateCustomer struct {
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+	Phone string `json:"phone,omitempty"`
+}
+
+// QuoteCreateDeliveryAddress is the optional delivery address stamped onto
+// the created quote (and cascaded to the linked work order).
+type QuoteCreateDeliveryAddress struct {
+	Address   string   `json:"address,omitempty"`
+	City      string   `json:"city,omitempty"`
+	State     string   `json:"state,omitempty"`
+	ZipCode   string   `json:"zipCode,omitempty"`
+	Latitude  *float64 `json:"latitude,omitempty"`
+	Longitude *float64 `json:"longitude,omitempty"`
+}
+
+// QuoteCreateRequest is the body for POST /partner/v1/quotes — create a quote
+// from an in-stock (on-lot) unit. Identify the unit with SerialNumber or
+// WorkOrderID (WorkOrderID wins when both are sent).
+type QuoteCreateRequest struct {
+	SerialNumber string `json:"serialNumber,omitempty"`
+	WorkOrderID  string `json:"workOrderId,omitempty"`
+	LocationID   string `json:"locationId,omitempty"`
+	// PurchaseType is "Lot Stock", "Rental Return", or "Immediate Sale";
+	// inferred from the unit when omitted.
+	PurchaseType    string                      `json:"purchaseType,omitempty"`
+	Price           *float64                    `json:"price,omitempty"`
+	Note            string                      `json:"note,omitempty"`
+	Customer        QuoteCreateCustomer         `json:"customer"`
+	DeliveryAddress *QuoteCreateDeliveryAddress `json:"deliveryAddress,omitempty"`
+}
+
 // QuotePatchRequest is the body for PATCH /partner/v1/quotes/{id}.
 type QuotePatchRequest struct {
 	CustomerName     string `json:"customerName,omitempty"`
@@ -305,6 +400,10 @@ type QuotePatchRequest struct {
 	SalespersonName  string `json:"salespersonName,omitempty"`
 	SalespersonEmail string `json:"salespersonEmail,omitempty"`
 	SalesLocation    string `json:"salesLocation,omitempty"`
+	DeliveryAddress  string `json:"deliveryAddress,omitempty"`
+	DeliveryCity     string `json:"deliveryCity,omitempty"`
+	DeliveryState    string `json:"deliveryState,omitempty"`
+	DeliveryZipCode  string `json:"deliveryZipCode,omitempty"`
 }
 
 // OrderPatchRequest is the body for PATCH /partner/v1/orders/{id}.
@@ -315,6 +414,10 @@ type OrderPatchRequest struct {
 	SalespersonName  string `json:"salespersonName,omitempty"`
 	SalespersonEmail string `json:"salespersonEmail,omitempty"`
 	SalesLocation    string `json:"salesLocation,omitempty"`
+	DeliveryAddress  string `json:"deliveryAddress,omitempty"`
+	DeliveryCity     string `json:"deliveryCity,omitempty"`
+	DeliveryState    string `json:"deliveryState,omitempty"`
+	DeliveryZipCode  string `json:"deliveryZipCode,omitempty"`
 }
 
 // WorkOrderPatchRequest is the body for PATCH /partner/v1/work-orders/{id}.

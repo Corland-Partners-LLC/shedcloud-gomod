@@ -22,7 +22,20 @@ type httpClient struct {
 	timeout   time.Duration
 }
 
-func (c *httpClient) request(ctx context.Context, method, path string, query any, body any, out any) error {
+// RequestOption customizes one request (e.g. WithIdempotencyKey). Accepted by
+// the create/convert methods as trailing variadic arguments.
+type RequestOption func(*http.Request)
+
+// WithIdempotencyKey sets the Idempotency-Key header on a create request. A
+// retried request with the same key (within 24 hours) replays the stored
+// response instead of creating a duplicate resource.
+func WithIdempotencyKey(key string) RequestOption {
+	return func(req *http.Request) {
+		req.Header.Set("Idempotency-Key", key)
+	}
+}
+
+func (c *httpClient) request(ctx context.Context, method, path string, query any, body any, out any, opts ...RequestOption) error {
 	u, err := url.Parse(c.baseURL + path)
 	if err != nil {
 		return err
@@ -68,6 +81,10 @@ func (c *httpClient) request(ctx context.Context, method, path string, query any
 		return newError("no access token available", http.StatusUnauthorized, nil, "")
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
+
+	for _, opt := range opts {
+		opt(req)
+	}
 
 	resp, err := c.httpDo(req)
 	if err != nil {

@@ -41,12 +41,12 @@ func (s *LocationsService) Get(ctx context.Context, id string) (*LocationItem, e
 // Create creates a location. Name is required, plus either an address or a
 // latitude/longitude pair. The location code must be unique in the company
 // (409 on duplicates).
-func (s *LocationsService) Create(ctx context.Context, body LocationCreateRequest) (*LocationItem, error) {
+func (s *LocationsService) Create(ctx context.Context, body LocationCreateRequest, opts ...RequestOption) (*LocationItem, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	var out LocationItem
-	if err := s.c.http.request(ctx, http.MethodPost, "/partner/v1/locations", nil, body, &out); err != nil {
+	if err := s.c.http.request(ctx, http.MethodPost, "/partner/v1/locations", nil, body, &out, opts...); err != nil {
 		return nil, err
 	}
 	return &out, nil

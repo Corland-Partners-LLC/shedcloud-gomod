@@ -39,12 +39,12 @@ func (s *CustomersService) Get(ctx context.Context, id string) (*CustomerItem, e
 
 // Create creates a customer. Email is required and must be unique within the
 // company (409 on duplicates).
-func (s *CustomersService) Create(ctx context.Context, body CustomerCreateRequest) (*CustomerItem, error) {
+func (s *CustomersService) Create(ctx context.Context, body CustomerCreateRequest, opts ...RequestOption) (*CustomerItem, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	var out CustomerItem
-	if err := s.c.http.request(ctx, http.MethodPost, "/partner/v1/customers", nil, body, &out); err != nil {
+	if err := s.c.http.request(ctx, http.MethodPost, "/partner/v1/customers", nil, body, &out, opts...); err != nil {
 		return nil, err
 	}
 	return &out, nil

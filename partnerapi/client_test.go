@@ -373,6 +373,153 @@ func TestLocationCreate(t *testing.T) {
 	}
 }
 
+func TestQuoteCreate(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/partner/v1/quotes" {
+			t.Errorf("%s %s", r.Method, r.URL.Path)
+		}
+		body, _ := io.ReadAll(r.Body)
+		var got map[string]any
+		_ = json.Unmarshal(body, &got)
+		if got["serialNumber"] != "SC-2024-00123" {
+			t.Errorf("body = %s", body)
+		}
+		customer, _ := got["customer"].(map[string]any)
+		if customer["email"] != "jane@example.com" || customer["name"] != "Jane Doe" {
+			t.Errorf("customer = %v", customer)
+		}
+		delivery, _ := got["deliveryAddress"].(map[string]any)
+		if delivery["city"] != "Dallas" || delivery["zipCode"] != "75201" {
+			t.Errorf("deliveryAddress = %v", delivery)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "quote-1", "orderNumber": 13848, "status": "Open",
+			"serialNumber": "SC-2024-00123", "workOrderId": "wo-1", "converted": false,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	quote, err := client.Quotes.Create(context.Background(), partnerapi.QuoteCreateRequest{
+		SerialNumber: "SC-2024-00123",
+		Customer: partnerapi.QuoteCreateCustomer{
+			Name:  "Jane Doe",
+			Email: "jane@example.com",
+			Phone: "555-0100",
+		},
+		DeliveryAddress: &partnerapi.QuoteCreateDeliveryAddress{
+			Address: "42 Oak Ave",
+			City:    "Dallas",
+			State:   "TX",
+			ZipCode: "75201",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if quote.ID != "quote-1" || quote.WorkOrderID != "wo-1" {
+		t.Fatalf("quote = %+v", quote)
+	}
+}
+
+func TestLeadCreateWithIdempotencyKey(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/partner/v1/leads" {
+			t.Errorf("%s %s", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("Idempotency-Key"); got != "idem-123" {
+			t.Errorf("Idempotency-Key = %q", got)
+		}
+		body, _ := io.ReadAll(r.Body)
+		var got map[string]any
+		_ = json.Unmarshal(body, &got)
+		if got["locationId"] != "66c00443c2d8aa83c5757dcf" {
+			t.Errorf("body = %s", body)
+		}
+		customer, _ := got["customer"].(map[string]any)
+		if customer["email"] != "jane@example.com" {
+			t.Errorf("customer = %v", customer)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "lead-1", "orderNumber": 13902, "status": "Open",
+			"salesperson": map[string]any{"name": "John Rep", "email": "john@dealer.com"},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lead, err := client.Leads.Create(context.Background(), partnerapi.LeadCreateRequest{
+		LocationID: "66c00443c2d8aa83c5757dcf",
+		Customer: partnerapi.LeadCreateCustomer{
+			Name:  "Jane Doe",
+			Email: "jane@example.com",
+		},
+	}, partnerapi.WithIdempotencyKey("idem-123"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lead.ID != "lead-1" || lead.Salesperson.Email != "john@dealer.com" {
+		t.Fatalf("lead = %+v", lead)
+	}
+}
+
+func TestQuoteConvert(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/partner/v1/quotes/quote-1/convert" {
+			t.Errorf("%s %s", r.Method, r.URL.Path)
+		}
+		body, _ := io.ReadAll(r.Body)
+		var got map[string]any
+		_ = json.Unmarshal(body, &got)
+		if got["salespersonEmail"] != "newrep@dealer.com" {
+			t.Errorf("body = %s", body)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "order-1", "orderNumber": 13849, "status": "Unsubmitted",
+			"sourceQuoteId": "quote-1", "sourceQuoteNumber": 13848,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	order, err := client.Quotes.Convert(context.Background(), "quote-1", partnerapi.QuoteConvertRequest{
+		SalespersonEmail: "newrep@dealer.com",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if order.ID != "order-1" || order.Status != "Unsubmitted" || order.SourceQuoteID != "quote-1" {
+		t.Fatalf("order = %+v", order)
+	}
+}
+
 func TestCustomerCreateAndPatch(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

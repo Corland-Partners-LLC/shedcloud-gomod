@@ -24,6 +24,22 @@ func (s *LeadsService) List(ctx context.Context, params SalesListParams) (*Pagin
 	return &out, nil
 }
 
+// Create makes a lead at a sales location with the customer's contact
+// information. When no salesperson is given, the location's lead-routing
+// strategy (round-robin, availability, skill-based) auto-assigns one — the
+// same routing in-stock quote creation uses. Requires the
+// partner-api.leads.write scope.
+func (s *LeadsService) Create(ctx context.Context, body LeadCreateRequest, opts ...RequestOption) (*LeadItem, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out LeadItem
+	if err := s.c.http.request(ctx, http.MethodPost, "/partner/v1/leads", nil, body, &out, opts...); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // Get returns one lead by id.
 func (s *LeadsService) Get(ctx context.Context, id string) (*LeadItem, error) {
 	if ctx == nil {
