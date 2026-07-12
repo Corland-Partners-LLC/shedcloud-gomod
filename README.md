@@ -87,13 +87,18 @@ Create credentials in the ShedCloud portal under **Settings → Developer API**.
 | Client field | Endpoints |
 |--------------|-----------|
 | `client.LotStock` | `GET /partner/v1/lot-stock` |
-| `client.Leads` | `GET/POST/PATCH /partner/v1/leads`, `POST .../status` — `Create(...)` makes a lead with location lead-routing |
-| `client.Quotes` | `GET/POST/PATCH /partner/v1/quotes`, `POST .../status` — `Create(...)` makes an in-stock quote from a serial number, `Convert(id, ...)` places it as a sales order |
-| `client.Orders` | `GET/PATCH /partner/v1/orders`, `POST .../status` |
-| `client.WorkOrders` | `GET/PATCH /partner/v1/work-orders`, `POST .../status` |
+| `client.Leads` | `GET/POST/PATCH /partner/v1/leads`, `POST .../status`, `GET .../status-history` — `Create(...)` makes a lead with location lead-routing |
+| `client.Quotes` | `GET/POST/PATCH /partner/v1/quotes`, `POST .../status`, `GET .../status-history`, `GET .../line-items` — `Create(...)` makes an in-stock quote from a serial number, `Convert(id, ...)` places it as a sales order |
+| `client.Orders` | `GET/PATCH /partner/v1/orders`, `POST .../status`, `GET .../status-history`, `GET .../line-items`, `GET .../contract`, `GET .../payments` |
+| `client.WorkOrders` | `GET/PATCH /partner/v1/work-orders`, `POST .../status`, `GET .../status-history` |
 | `client.Locations` | `GET/POST/PATCH /partner/v1/locations` |
 | `client.Customers` | `GET/POST/PATCH /partner/v1/customers` |
 | `client.Products` | `GET /partner/v1/products` (read-only catalog) |
+| `client.Users` | `GET /partner/v1/users[/{id}]` (salespeople; resolve `Salesperson.ID`) |
+| `client.Payments` | `GET /partner/v1/payments[/{id}]` (read-only) |
+| `client.Documents` | `GET /partner/v1/documents`, `GET .../{id}/download` (short-lived presigned URL) |
+| `client.Events` | `GET /partner/v1/events` cursor feed, `Each(...)` iterator, `Redeliver(id)`, `Deliveries(...)` webhook delivery log |
+| `client.ConfiguratorSessions` | `POST /partner/v1/configurator-sessions` (single-use 3D configurator launch URLs) |
 
 ### Examples
 
@@ -142,6 +147,49 @@ order, err := client.Quotes.Convert(ctx, quote.ID, partnerapi.QuoteConvertReques
 // All create/convert methods accept an idempotency key: a retried request
 // with the same key replays the stored response instead of duplicating.
 _, err = client.Quotes.Create(ctx, req, partnerapi.WithIdempotencyKey(uuid.NewString()))
+
+// Stamp your own correlation ids on records; filter lists by them later.
+crmID := "deal-42"
+_, err = client.Orders.Update(ctx, order.ID, partnerapi.OrderPatchRequest{
+	ExternalRefs: partnerapi.ExternalReferencesPatch{"crmDealId": &crmID},
+})
+matches, err := client.Orders.List(ctx, partnerapi.OrderListParams{
+	SalesListParams: partnerapi.SalesListParams{ExternalRef: "crmDealId:deal-42"},
+})
+
+// Optimistic concurrency: send the version you read as If-Match — the server
+// answers 409 Conflict if someone else wrote in between.
+_, err = client.Orders.Update(ctx, order.ID,
+	partnerapi.OrderPatchRequest{CustomerPhone: "555-0100"},
+	partnerapi.WithIfMatch(order.Version))
+
+// Consume the change feed losslessly with a stored cursor.
+err = client.Events.Each(ctx, partnerapi.EventListParams{Cursor: lastSeen},
+	func(ev partnerapi.EventItem) error {
+		lastSeen = ev.ID
+		return handle(ev)
+	})
+```
+
+## Webhooks
+
+Verify webhook deliveries with the subscription secret (shown once when the webhook is created in Settings → Developer API). Always verify against the **raw** request body:
+
+```go
+func webhookHandler(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+	err := partnerapi.VerifyWebhookSignature(
+		os.Getenv("SHEDCLOUD_WEBHOOK_SECRET"),
+		r.Header.Get(partnerapi.WebhookSignatureHeader),
+		body, 0)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	var event partnerapi.EventItem
+	_ = json.Unmarshal(body, &event)
+	w.WriteHeader(http.StatusOK) // ack fast; process async and dedupe by event.ID
+}
 ```
 
 ## Errors

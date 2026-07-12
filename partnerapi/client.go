@@ -14,14 +14,20 @@ import (
 //	})
 //	stock, err := client.LotStock.List(ctx, partnerapi.LotStockListParams{Limit: 50})
 type Client struct {
-	LotStock   *LotStockService
-	Leads      *LeadsService
-	Quotes     *QuotesService
-	Orders     *OrdersService
-	WorkOrders *WorkOrdersService
-	Locations  *LocationsService
-	Customers  *CustomersService
-	Products   *ProductsService
+	LotStock             *LotStockService
+	StockTemplates       *StockTemplatesService
+	Leads                *LeadsService
+	Quotes               *QuotesService
+	Orders               *OrdersService
+	WorkOrders           *WorkOrdersService
+	Locations            *LocationsService
+	Customers            *CustomersService
+	Products             *ProductsService
+	Users                *UsersService
+	Payments             *PaymentsService
+	Documents            *DocumentsService
+	Events               *EventsService
+	ConfiguratorSessions *ConfiguratorSessionsService
 
 	// BaseURL is the resolved API host used for all requests.
 	BaseURL string
@@ -92,6 +98,7 @@ func New(opts Options) (*Client, error) {
 		http:    hc,
 	}
 	c.LotStock = &LotStockService{c: c}
+	c.StockTemplates = &StockTemplatesService{c: c}
 	c.Leads = &LeadsService{c: c}
 	c.Quotes = &QuotesService{c: c}
 	c.Orders = &OrdersService{c: c}
@@ -99,6 +106,11 @@ func New(opts Options) (*Client, error) {
 	c.Locations = &LocationsService{c: c}
 	c.Customers = &CustomersService{c: c}
 	c.Products = &ProductsService{c: c}
+	c.Users = &UsersService{c: c}
+	c.Payments = &PaymentsService{c: c}
+	c.Documents = &DocumentsService{c: c}
+	c.Events = &EventsService{c: c}
+	c.ConfiguratorSessions = &ConfiguratorSessionsService{c: c}
 	return c, nil
 }
 

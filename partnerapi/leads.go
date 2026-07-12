@@ -53,14 +53,15 @@ func (s *LeadsService) Get(ctx context.Context, id string) (*LeadItem, error) {
 	return &out, nil
 }
 
-// Update patches allowlisted lead fields.
-func (s *LeadsService) Update(ctx context.Context, id string, body LeadPatchRequest) (*LeadItem, error) {
+// Update patches allowlisted lead fields. Pass WithIfMatch(version) for
+// optimistic concurrency.
+func (s *LeadsService) Update(ctx context.Context, id string, body LeadPatchRequest, opts ...RequestOption) (*LeadItem, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	var out LeadItem
 	path := fmt.Sprintf("/partner/v1/leads/%s", url.PathEscape(id))
-	if err := s.c.http.request(ctx, http.MethodPatch, path, nil, body, &out); err != nil {
+	if err := s.c.http.request(ctx, http.MethodPatch, path, nil, body, &out, opts...); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -74,6 +75,19 @@ func (s *LeadsService) UpdateStatus(ctx context.Context, id string, body StatusU
 	var out LeadItem
 	path := fmt.Sprintf("/partner/v1/leads/%s/status", url.PathEscape(id))
 	if err := s.c.http.request(ctx, http.MethodPost, path, nil, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// StatusHistory returns the lead's status change log (newest first).
+func (s *LeadsService) StatusHistory(ctx context.Context, id string, params PaginationParams) (*PaginatedResponse[StatusChangeItem], error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out PaginatedResponse[StatusChangeItem]
+	path := fmt.Sprintf("/partner/v1/leads/%s/status-history", url.PathEscape(id))
+	if err := s.c.http.request(ctx, http.MethodGet, path, params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

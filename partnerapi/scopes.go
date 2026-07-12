@@ -17,6 +17,13 @@ const (
 	ScopeCustomersRead   = "partner-api.customers.read"
 	ScopeCustomersWrite  = "partner-api.customers.write"
 	ScopeProductsRead    = "partner-api.products.read"
+
+	ScopeUsersRead                 = "partner-api.users.read"
+	ScopeContractsRead             = "partner-api.contracts.read"
+	ScopePaymentsRead              = "partner-api.payments.read"
+	ScopeDocumentsRead             = "partner-api.documents.read"
+	ScopeEventsRead                = "partner-api.events.read"
+	ScopeConfiguratorSessionsWrite = "partner-api.configurator-sessions.write"
 )
 
 // AllScopes is the full catalog in display order.
@@ -35,4 +42,10 @@ var AllScopes = []string{
 	ScopeCustomersRead,
 	ScopeCustomersWrite,
 	ScopeProductsRead,
+	ScopeUsersRead,
+	ScopeContractsRead,
+	ScopePaymentsRead,
+	ScopeDocumentsRead,
+	ScopeEventsRead,
+	ScopeConfiguratorSessionsWrite,
 }

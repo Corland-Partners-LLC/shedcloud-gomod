@@ -37,14 +37,15 @@ func (s *WorkOrdersService) Get(ctx context.Context, id string) (*WorkOrderItem,
 	return &out, nil
 }
 
-// Update patches allowlisted work order fields.
-func (s *WorkOrdersService) Update(ctx context.Context, id string, body WorkOrderPatchRequest) (*WorkOrderItem, error) {
+// Update patches allowlisted work order fields. Pass WithIfMatch(version)
+// for optimistic concurrency.
+func (s *WorkOrdersService) Update(ctx context.Context, id string, body WorkOrderPatchRequest, opts ...RequestOption) (*WorkOrderItem, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	var out WorkOrderItem
 	path := fmt.Sprintf("/partner/v1/work-orders/%s", url.PathEscape(id))
-	if err := s.c.http.request(ctx, http.MethodPatch, path, nil, body, &out); err != nil {
+	if err := s.c.http.request(ctx, http.MethodPatch, path, nil, body, &out, opts...); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -58,6 +59,19 @@ func (s *WorkOrdersService) UpdateStatus(ctx context.Context, id string, body St
 	var out WorkOrderItem
 	path := fmt.Sprintf("/partner/v1/work-orders/%s/status", url.PathEscape(id))
 	if err := s.c.http.request(ctx, http.MethodPost, path, nil, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// StatusHistory returns the work order's status change log (newest first).
+func (s *WorkOrdersService) StatusHistory(ctx context.Context, id string, params PaginationParams) (*PaginatedResponse[StatusChangeItem], error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out PaginatedResponse[StatusChangeItem]
+	path := fmt.Sprintf("/partner/v1/work-orders/%s/status-history", url.PathEscape(id))
+	if err := s.c.http.request(ctx, http.MethodGet, path, params, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

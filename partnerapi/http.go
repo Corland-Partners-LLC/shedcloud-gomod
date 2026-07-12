@@ -35,6 +35,15 @@ func WithIdempotencyKey(key string) RequestOption {
 	}
 }
 
+// WithIfMatch sends the record's version as an If-Match precondition on an
+// update (PATCH) request: on mismatch the server rejects with 409 Conflict
+// instead of overwriting a newer write.
+func WithIfMatch(version int64) RequestOption {
+	return func(req *http.Request) {
+		req.Header.Set("If-Match", strconv.FormatInt(version, 10))
+	}
+}
+
 func (c *httpClient) request(ctx context.Context, method, path string, query any, body any, out any, opts ...RequestOption) error {
 	u, err := url.Parse(c.baseURL + path)
 	if err != nil {

@@ -50,15 +50,34 @@ func (s *CustomersService) Create(ctx context.Context, body CustomerCreateReques
 	return &out, nil
 }
 
+// Merge folds the duplicate customer id into the survivor: the duplicate is
+// flagged (Merged=true, MergedInto set) rather than deleted, so its id keeps
+// resolving on Get, and every lead/quote/order that pointed at it is
+// relinked to the survivor. Merged customers disappear from lists (unless
+// CustomerListParams.IncludeMerged is set) and reject writes with 409.
+// Requires the partner-api.customers.write scope; supports
+// WithIdempotencyKey.
+func (s *CustomersService) Merge(ctx context.Context, id string, body CustomerMergeRequest, opts ...RequestOption) (*CustomerMergeResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out CustomerMergeResponse
+	path := fmt.Sprintf("/partner/v1/customers/%s/merge", url.PathEscape(id))
+	if err := s.c.http.request(ctx, http.MethodPost, path, nil, body, &out, opts...); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // Update patches allowlisted customer fields (contact info, address, code,
 // active flag).
-func (s *CustomersService) Update(ctx context.Context, id string, body CustomerPatchRequest) (*CustomerItem, error) {
+func (s *CustomersService) Update(ctx context.Context, id string, body CustomerPatchRequest, opts ...RequestOption) (*CustomerItem, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	var out CustomerItem
 	path := fmt.Sprintf("/partner/v1/customers/%s", url.PathEscape(id))
-	if err := s.c.http.request(ctx, http.MethodPatch, path, nil, body, &out); err != nil {
+	if err := s.c.http.request(ctx, http.MethodPatch, path, nil, body, &out, opts...); err != nil {
 		return nil, err
 	}
 	return &out, nil

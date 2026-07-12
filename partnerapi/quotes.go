@@ -73,14 +73,15 @@ func (s *QuotesService) Get(ctx context.Context, id string) (*QuoteItem, error) 
 	return &out, nil
 }
 
-// Update patches allowlisted quote fields.
-func (s *QuotesService) Update(ctx context.Context, id string, body QuotePatchRequest) (*QuoteItem, error) {
+// Update patches allowlisted quote fields. Pass WithIfMatch(version) for
+// optimistic concurrency.
+func (s *QuotesService) Update(ctx context.Context, id string, body QuotePatchRequest, opts ...RequestOption) (*QuoteItem, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	var out QuoteItem
 	path := fmt.Sprintf("/partner/v1/quotes/%s", url.PathEscape(id))
-	if err := s.c.http.request(ctx, http.MethodPatch, path, nil, body, &out); err != nil {
+	if err := s.c.http.request(ctx, http.MethodPatch, path, nil, body, &out, opts...); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -94,6 +95,33 @@ func (s *QuotesService) UpdateStatus(ctx context.Context, id string, body Status
 	var out QuoteItem
 	path := fmt.Sprintf("/partner/v1/quotes/%s/status", url.PathEscape(id))
 	if err := s.c.http.request(ctx, http.MethodPost, path, nil, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// StatusHistory returns the quote's status change log (newest first).
+func (s *QuotesService) StatusHistory(ctx context.Context, id string, params PaginationParams) (*PaginatedResponse[StatusChangeItem], error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out PaginatedResponse[StatusChangeItem]
+	path := fmt.Sprintf("/partner/v1/quotes/%s/status-history", url.PathEscape(id))
+	if err := s.c.http.request(ctx, http.MethodGet, path, params, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// LineItems returns the quote's curated line items plus the building
+// configuration block.
+func (s *QuotesService) LineItems(ctx context.Context, id string) (*LineItemsResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out LineItemsResponse
+	path := fmt.Sprintf("/partner/v1/quotes/%s/line-items", url.PathEscape(id))
+	if err := s.c.http.request(ctx, http.MethodGet, path, nil, nil, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

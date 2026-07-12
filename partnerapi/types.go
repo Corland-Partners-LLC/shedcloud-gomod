@@ -27,8 +27,56 @@ type PartnerCustomer struct {
 
 // PartnerSalesperson is the nested salesperson object on sales entities.
 type PartnerSalesperson struct {
+	// ID is the user id — resolvable against Client.Users.Get.
+	ID    string `json:"id,omitempty"`
 	Name  string `json:"name,omitempty"`
 	Email string `json:"email,omitempty"`
+}
+
+// ExternalReferences are your own correlation ids stamped on a record (CRM
+// deal id, ERP order id, …). Echoed in every DTO and event; filterable on
+// lists via the ExternalRef param ("key:value").
+type ExternalReferences map[string]string
+
+// ExternalReferencesPatch is the PATCH shape for external references: keys
+// are merged into the existing map; a nil value deletes that key.
+type ExternalReferencesPatch map[string]*string
+
+// PartnerRTO is the rent-to-own block on quotes/orders when the pricing
+// payment type is "rto".
+type PartnerRTO struct {
+	TermMonths      int     `json:"termMonths,omitempty"`
+	MonthlyPayment  float64 `json:"monthlyPayment,omitempty"`
+	Rent            float64 `json:"rent,omitempty"`
+	SecurityDeposit float64 `json:"securityDeposit,omitempty"`
+	DownPayment     float64 `json:"downPayment,omitempty"`
+	DamageWaiver    float64 `json:"damageWaiver,omitempty"`
+	TotalDueToday   float64 `json:"totalDueToday,omitempty"`
+	Balance         float64 `json:"balance,omitempty"`
+	// ProviderName is the financing provider's name — populated on
+	// get-by-id only.
+	ProviderName string `json:"providerName,omitempty"`
+}
+
+// PartnerDeposits is the money collected/owed on an order.
+type PartnerDeposits struct {
+	DownPayment     float64 `json:"downPayment,omitempty"`
+	SecurityDeposit float64 `json:"securityDeposit,omitempty"`
+	TotalDueToday   float64 `json:"totalDueToday,omitempty"`
+	TotalPaid       float64 `json:"totalPaid,omitempty"`
+	Balance         float64 `json:"balance,omitempty"`
+}
+
+// PartnerDelivery is the transportation-run block on a work order detail
+// response (get-by-id only).
+type PartnerDelivery struct {
+	// ScheduledDate is the per-stop delivery date on the run assignment.
+	ScheduledDate string `json:"scheduledDate,omitempty"`
+	RunNumber     int    `json:"runNumber,omitempty"`
+	// RunStatus is "Open", "Scheduled", "En Route", or "Delivered".
+	RunStatus   string `json:"runStatus,omitempty"`
+	DriverName  string `json:"driverName,omitempty"`
+	DeliveredAt string `json:"deliveredAt,omitempty"`
 }
 
 // PartnerLocation is the nested location object.
@@ -44,7 +92,8 @@ type PartnerPricing struct {
 	Total          float64 `json:"total"`
 	MonthlyPayment float64 `json:"monthlyPayment,omitempty"`
 	// PaymentType is "rto" or "cash".
-	PaymentType string `json:"paymentType,omitempty"`
+	PaymentType    string  `json:"paymentType,omitempty"`
+	ChangeOrderFee float64 `json:"changeOrderFee,omitempty"`
 }
 
 // LotStockAttributes is the exterior configuration of a lot-stock unit — the
@@ -77,6 +126,42 @@ type LotStockItem struct {
 	Sold       bool                `json:"sold"`
 }
 
+// StockTemplateItem is one stock template — a buildable catalog design (not
+// physical inventory; see LotStockItem for on-lot units).
+type StockTemplateItem struct {
+	ID              string `json:"id"`
+	WorkOrderNumber string `json:"workOrderNumber,omitempty"`
+	TemplateName    string `json:"templateName,omitempty"`
+	ProductName     string `json:"productName,omitempty"`
+	Description     string `json:"description,omitempty"`
+	DescriptionHTML string `json:"descriptionHtml,omitempty"`
+	// Tags are the template's public tags (internal tags are never exposed).
+	Tags   []string `json:"tags"`
+	Images []string `json:"images"`
+	// Prices: base price, upgrades total, and the total of removed standard
+	// features.
+	BasePrice     *float64 `json:"basePrice,omitempty"`
+	UpgradesPrice *float64 `json:"upgradesPrice,omitempty"`
+	RemovedPrice  *float64 `json:"removedPrice,omitempty"`
+	// ConfiguratorID is the template's 3D configuration; StructuraURL
+	// deep-links the interactive 3D view of it.
+	ConfiguratorID string `json:"configuratorId,omitempty"`
+	StructuraURL   string `json:"structuraUrl,omitempty"`
+	ProductID      string `json:"productId,omitempty"`
+	SizeID         string `json:"sizeId,omitempty"`
+}
+
+// StockTemplateListParams are query params for GET /partner/v1/stock-templates.
+type StockTemplateListParams struct {
+	PaginationParams // Limit is capped at 60 by the server.
+	// Search is a case-insensitive match on work-order number, template
+	// name, or product name.
+	Search string `json:"search,omitempty"`
+	// Tags filters to templates carrying all of these public tags (joined
+	// with commas for you).
+	Tags []string `json:"-"`
+}
+
 // LeadItem is one lead.
 type LeadItem struct {
 	ID              string             `json:"id"`
@@ -86,62 +171,86 @@ type LeadItem struct {
 	Customer        PartnerCustomer    `json:"customer"`
 	Salesperson     PartnerSalesperson `json:"salesperson"`
 	Location        PartnerLocation    `json:"location"`
-	CreatedAt       string             `json:"createdAt,omitempty"`
-	UpdatedAt       string             `json:"updatedAt,omitempty"`
+	ExternalRefs    ExternalReferences `json:"externalReferences,omitempty"`
+	// Version increments on every write; usable with WithIfMatch.
+	Version   int64  `json:"version,omitempty"`
+	CreatedAt string `json:"createdAt,omitempty"`
+	UpdatedAt string `json:"updatedAt,omitempty"`
 }
 
 // QuoteItem is one quote.
 type QuoteItem struct {
-	ID                   string             `json:"id"`
-	OrderNumber          int                `json:"orderNumber,omitempty"`
-	Status               string             `json:"status,omitempty"`
-	StatusChangedAt      string             `json:"statusChangedAt,omitempty"`
-	Customer             PartnerCustomer    `json:"customer"`
-	Salesperson          PartnerSalesperson `json:"salesperson"`
-	Location             PartnerLocation    `json:"location"`
-	Pricing              PartnerPricing     `json:"pricing"`
+	ID              string             `json:"id"`
+	OrderNumber     int                `json:"orderNumber,omitempty"`
+	Status          string             `json:"status,omitempty"`
+	StatusChangedAt string             `json:"statusChangedAt,omitempty"`
+	Customer        PartnerCustomer    `json:"customer"`
+	Salesperson     PartnerSalesperson `json:"salesperson"`
+	Location        PartnerLocation    `json:"location"`
+	Pricing         PartnerPricing     `json:"pricing"`
+	// RTO is non-nil when Pricing.PaymentType is "rto".
+	RTO                  *PartnerRTO        `json:"rto,omitempty"`
 	SerialNumber         string             `json:"serialNumber,omitempty"`
 	WorkOrderID          string             `json:"workOrderId,omitempty"`
 	Converted            bool               `json:"converted"`
 	ConvertedOrderID     string             `json:"convertedOrderId,omitempty"`
 	ConvertedOrderNumber int                `json:"convertedOrderNumber,omitempty"`
+	// ValidUntil is the quote expiration timestamp (RFC 3339). When it passes
+	// while the quote is still Open/Active, a quote.expired event is emitted.
+	ValidUntil   string             `json:"validUntil,omitempty"`
+	ExternalRefs ExternalReferences `json:"externalReferences,omitempty"`
+	Version              int64              `json:"version,omitempty"`
 	CreatedAt            string             `json:"createdAt,omitempty"`
 	UpdatedAt            string             `json:"updatedAt,omitempty"`
 }
 
 // OrderItem is one sales order.
 type OrderItem struct {
-	ID                string             `json:"id"`
-	OrderNumber       int                `json:"orderNumber,omitempty"`
-	Status            string             `json:"status,omitempty"`
-	StatusChangedAt   string             `json:"statusChangedAt,omitempty"`
-	Customer          PartnerCustomer    `json:"customer"`
-	Salesperson       PartnerSalesperson `json:"salesperson"`
-	Location          PartnerLocation    `json:"location"`
-	Pricing           PartnerPricing     `json:"pricing"`
-	SerialNumber      string             `json:"serialNumber,omitempty"`
-	WorkOrderID       string             `json:"workOrderId,omitempty"`
-	SourceQuoteID     string             `json:"sourceQuoteId,omitempty"`
-	SourceQuoteNumber int                `json:"sourceQuoteNumber,omitempty"`
-	CreatedAt         string             `json:"createdAt,omitempty"`
-	UpdatedAt         string             `json:"updatedAt,omitempty"`
+	ID              string             `json:"id"`
+	OrderNumber     int                `json:"orderNumber,omitempty"`
+	Status          string             `json:"status,omitempty"`
+	StatusChangedAt string             `json:"statusChangedAt,omitempty"`
+	Customer        PartnerCustomer    `json:"customer"`
+	Salesperson     PartnerSalesperson `json:"salesperson"`
+	Location        PartnerLocation    `json:"location"`
+	Pricing         PartnerPricing     `json:"pricing"`
+	// RTO is non-nil when Pricing.PaymentType is "rto".
+	RTO *PartnerRTO `json:"rto,omitempty"`
+	// Deposits is the money collected/owed on the order.
+	Deposits          *PartnerDeposits   `json:"deposits,omitempty"`
+	SerialNumber      string `json:"serialNumber,omitempty"`
+	WorkOrderID       string `json:"workOrderId,omitempty"`
+	SourceQuoteID     string `json:"sourceQuoteId,omitempty"`
+	SourceQuoteNumber int    `json:"sourceQuoteNumber,omitempty"`
+	// ExpectedDeliveryDate is the expected delivery date (RFC 3339).
+	ExpectedDeliveryDate string `json:"expectedDeliveryDate,omitempty"`
+	// DeliveredAt is the delivery completion timestamp (RFC 3339).
+	DeliveredAt  string             `json:"deliveredAt,omitempty"`
+	ExternalRefs ExternalReferences `json:"externalReferences,omitempty"`
+	Version      int64              `json:"version,omitempty"`
+	CreatedAt    string             `json:"createdAt,omitempty"`
+	UpdatedAt    string             `json:"updatedAt,omitempty"`
 }
 
 // WorkOrderItem is one work order.
 type WorkOrderItem struct {
-	ID              string          `json:"id"`
-	WorkOrderNumber int             `json:"workOrderNumber,omitempty"`
-	SerialNumber    string          `json:"serialNumber,omitempty"`
-	Title           string          `json:"title,omitempty"`
-	Status          string          `json:"status,omitempty"`
-	StatusChangedAt string          `json:"statusChangedAt,omitempty"`
-	OrderID         string          `json:"orderId,omitempty"`
-	OrderNumber     int             `json:"orderNumber,omitempty"`
-	Location        PartnerLocation `json:"location"`
-	BasePrice       float64         `json:"basePrice,omitempty"`
-	PromisedDate    string          `json:"promisedDate,omitempty"`
-	CreatedAt       string          `json:"createdAt,omitempty"`
-	UpdatedAt       string          `json:"updatedAt,omitempty"`
+	ID              string             `json:"id"`
+	WorkOrderNumber int                `json:"workOrderNumber,omitempty"`
+	SerialNumber    string             `json:"serialNumber,omitempty"`
+	Title           string             `json:"title,omitempty"`
+	Status          string             `json:"status,omitempty"`
+	StatusChangedAt string             `json:"statusChangedAt,omitempty"`
+	OrderID         string             `json:"orderId,omitempty"`
+	OrderNumber     int                `json:"orderNumber,omitempty"`
+	Location        PartnerLocation    `json:"location"`
+	BasePrice       float64            `json:"basePrice,omitempty"`
+	PromisedDate    string             `json:"promisedDate,omitempty"`
+	// Delivery is the transportation-run block — populated on get-by-id only.
+	Delivery     *PartnerDelivery   `json:"delivery,omitempty"`
+	ExternalRefs ExternalReferences `json:"externalReferences,omitempty"`
+	Version         int64              `json:"version,omitempty"`
+	CreatedAt       string             `json:"createdAt,omitempty"`
+	UpdatedAt       string             `json:"updatedAt,omitempty"`
 }
 
 // LocationItem is one full location record (sales lot, plant, warehouse).
@@ -162,6 +271,11 @@ type LocationItem struct {
 	Active        bool     `json:"active"`
 	SalesLot      bool     `json:"salesLot"`
 	Plant         bool     `json:"plant"`
+	// Timezone is the company-level IANA timezone. Store hours are
+	// interpreted in this zone.
+	Timezone string `json:"timezone,omitempty"`
+	// Region is a dealer-defined grouping label (e.g. "Southeast").
+	Region string `json:"region,omitempty"`
 	// StoreHours is the weekly store schedule keyed by day ("mon".."sun").
 	// Empty when the location has no schedule configured.
 	StoreHours map[string]StoreHoursDay `json:"storeHours,omitempty"`
@@ -192,8 +306,15 @@ type CustomerItem struct {
 	ZipCode       string `json:"zipCode,omitempty"`
 	Code          string `json:"code,omitempty"`
 	Active        bool   `json:"active"`
-	CreatedAt     string `json:"createdAt,omitempty"`
-	UpdatedAt     string `json:"updatedAt,omitempty"`
+	// Merge lineage: a merged duplicate keeps resolving by id but carries
+	// Merged=true and points at the surviving record.
+	Merged       bool               `json:"merged,omitempty"`
+	MergedInto   string             `json:"mergedInto,omitempty"`
+	MergedAt     string             `json:"mergedAt,omitempty"`
+	ExternalRefs ExternalReferences `json:"externalReferences,omitempty"`
+	Version      int64              `json:"version,omitempty"`
+	CreatedAt    string             `json:"createdAt,omitempty"`
+	UpdatedAt    string             `json:"updatedAt,omitempty"`
 }
 
 // ProductItem is one finished catalog product (read-only). Raw materials and
@@ -226,11 +347,14 @@ type LotStockListParams struct {
 	// PurchaseType is ALL (the default — no category filter), Lot Stock,
 	// Rental Return, or Immediate Sale. Case-insensitive; hyphens and
 	// underscores are accepted (e.g. "lot-stock").
-	PurchaseType string    `json:"purchaseType,omitempty"`
-	Location     string    `json:"location,omitempty"`
-	Search       string    `json:"search,omitempty"`
-	Sort         string    `json:"sort,omitempty"` // serialNumber | title | price | createdAt
-	Order        SortOrder `json:"order,omitempty"`
+	PurchaseType string `json:"purchaseType,omitempty"`
+	Location     string `json:"location,omitempty"`
+	// Region filters to units at locations carrying this exact region label
+	// (dealer-defined). Combined with Location, both constraints must hold.
+	Region string    `json:"region,omitempty"`
+	Search string    `json:"search,omitempty"`
+	Sort   string    `json:"sort,omitempty"` // serialNumber | title | price | createdAt
+	Order  SortOrder `json:"order,omitempty"`
 }
 
 // SalesListParams are shared list filters for leads, quotes, and orders.
@@ -249,6 +373,8 @@ type SalesListParams struct {
 	CreatedTo     string    `json:"createdTo,omitempty"`
 	UpdatedFrom   string    `json:"updatedFrom,omitempty"`
 	UpdatedTo     string    `json:"updatedTo,omitempty"`
+	// ExternalRef is a "key:value" exact match on your external references.
+	ExternalRef string `json:"externalRef,omitempty"`
 }
 
 // QuoteListParams extends SalesListParams with converted.
@@ -280,6 +406,8 @@ type WorkOrderListParams struct {
 	CreatedTo     string    `json:"createdTo,omitempty"`
 	UpdatedFrom   string    `json:"updatedFrom,omitempty"`
 	UpdatedTo     string    `json:"updatedTo,omitempty"`
+	// ExternalRef is a "key:value" exact match on your external references.
+	ExternalRef string `json:"externalRef,omitempty"`
 }
 
 // LocationListParams are query params for GET /partner/v1/locations.
@@ -292,6 +420,8 @@ type LocationListParams struct {
 	Active   *bool `json:"active,omitempty"`
 	SalesLot *bool `json:"salesLot,omitempty"`
 	Plant    *bool `json:"plant,omitempty"`
+	// Region is an exact match on the dealer-defined region label.
+	Region string `json:"region,omitempty"`
 }
 
 // CustomerListParams are query params for GET /partner/v1/customers.
@@ -306,6 +436,11 @@ type CustomerListParams struct {
 	CreatedTo   string    `json:"createdTo,omitempty"`
 	UpdatedFrom string    `json:"updatedFrom,omitempty"`
 	UpdatedTo   string    `json:"updatedTo,omitempty"`
+	// ExternalRef is a "key:value" exact match on your external references.
+	ExternalRef string `json:"externalRef,omitempty"`
+	// IncludeMerged includes customers that were merged into another record
+	// (excluded from lists by default).
+	IncludeMerged bool `json:"includeMerged,omitempty"`
 }
 
 // ProductListParams are query params for GET /partner/v1/products.
@@ -328,6 +463,8 @@ type LeadPatchRequest struct {
 	SalesLocation    string `json:"salesLocation,omitempty"`
 	SalespersonName  string `json:"salespersonName,omitempty"`
 	SalespersonEmail string `json:"salespersonEmail,omitempty"`
+	// ExternalRefs keys are merged into the record's map; nil values delete keys.
+	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
 }
 
 // LeadCreateCustomer is the customer block of LeadCreateRequest. At least one
@@ -346,6 +483,7 @@ type LeadCreateRequest struct {
 	Customer         LeadCreateCustomer `json:"customer"`
 	SalespersonName  string             `json:"salespersonName,omitempty"`
 	SalespersonEmail string             `json:"salespersonEmail,omitempty"`
+	ExternalRefs     ExternalReferences `json:"externalReferences,omitempty"`
 }
 
 // QuoteConvertRequest is the optional body for
@@ -390,6 +528,7 @@ type QuoteCreateRequest struct {
 	Note            string                      `json:"note,omitempty"`
 	Customer        QuoteCreateCustomer         `json:"customer"`
 	DeliveryAddress *QuoteCreateDeliveryAddress `json:"deliveryAddress,omitempty"`
+	ExternalRefs    ExternalReferences          `json:"externalReferences,omitempty"`
 }
 
 // QuotePatchRequest is the body for PATCH /partner/v1/quotes/{id}.
@@ -404,6 +543,11 @@ type QuotePatchRequest struct {
 	DeliveryCity     string `json:"deliveryCity,omitempty"`
 	DeliveryState    string `json:"deliveryState,omitempty"`
 	DeliveryZipCode  string `json:"deliveryZipCode,omitempty"`
+	// ValidUntil sets the quote's expiration ("YYYY-MM-DD" or RFC 3339;
+	// date-only values cover the whole day).
+	ValidUntil *string `json:"validUntil,omitempty"`
+	// ExternalRefs keys are merged into the record's map; nil values delete keys.
+	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
 }
 
 // OrderPatchRequest is the body for PATCH /partner/v1/orders/{id}.
@@ -418,6 +562,8 @@ type OrderPatchRequest struct {
 	DeliveryCity     string `json:"deliveryCity,omitempty"`
 	DeliveryState    string `json:"deliveryState,omitempty"`
 	DeliveryZipCode  string `json:"deliveryZipCode,omitempty"`
+	// ExternalRefs keys are merged into the record's map; nil values delete keys.
+	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
 }
 
 // WorkOrderPatchRequest is the body for PATCH /partner/v1/work-orders/{id}.
@@ -426,6 +572,8 @@ type WorkOrderPatchRequest struct {
 	Description      string `json:"description,omitempty"`
 	BuildingLocation string `json:"buildingLocation,omitempty"`
 	PromisedDate     string `json:"promisedDate,omitempty"`
+	// ExternalRefs keys are merged into the record's map; nil values delete keys.
+	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
 }
 
 // LocationCreateRequest is the body for POST /partner/v1/locations.
@@ -472,16 +620,17 @@ type LocationPatchRequest struct {
 // CustomerCreateRequest is the body for POST /partner/v1/customers.
 // Email is required and must be unique within the company.
 type CustomerCreateRequest struct {
-	Email         string `json:"email"`
-	Name          string `json:"name,omitempty"`
-	ContactName   string `json:"contactName,omitempty"`
-	ContactPerson string `json:"contactPerson,omitempty"`
-	Phone         string `json:"phone,omitempty"`
-	Address       string `json:"address,omitempty"`
-	City          string `json:"city,omitempty"`
-	State         string `json:"state,omitempty"`
-	ZipCode       string `json:"zipCode,omitempty"`
-	Code          string `json:"code,omitempty"`
+	Email         string             `json:"email"`
+	Name          string             `json:"name,omitempty"`
+	ContactName   string             `json:"contactName,omitempty"`
+	ContactPerson string             `json:"contactPerson,omitempty"`
+	Phone         string             `json:"phone,omitempty"`
+	Address       string             `json:"address,omitempty"`
+	City          string             `json:"city,omitempty"`
+	State         string             `json:"state,omitempty"`
+	ZipCode       string             `json:"zipCode,omitempty"`
+	Code          string             `json:"code,omitempty"`
+	ExternalRefs  ExternalReferences `json:"externalReferences,omitempty"`
 }
 
 // CustomerPatchRequest is the body for PATCH /partner/v1/customers/{id}.
@@ -497,6 +646,25 @@ type CustomerPatchRequest struct {
 	ZipCode       string `json:"zipCode,omitempty"`
 	Code          string `json:"code,omitempty"`
 	Active        *bool  `json:"active,omitempty"`
+	// ExternalRefs keys are merged into the record's map; nil values delete keys.
+	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
+}
+
+// CustomerMergeRequest is the body for POST /partner/v1/customers/{id}/merge.
+type CustomerMergeRequest struct {
+	// SurvivorID is the customer that absorbs the duplicate in the path.
+	SurvivorID string `json:"survivorId"`
+}
+
+// CustomerMergeResponse reports the merge outcome.
+type CustomerMergeResponse struct {
+	Survivor CustomerItem `json:"survivor"`
+	// MergedCustomerID is the merged duplicate's id — it now resolves with
+	// Merged=true and MergedInto pointing at the survivor.
+	MergedCustomerID string `json:"mergedCustomerId"`
+	// RelinkedSalesEntities counts the leads/quotes/orders moved to the
+	// survivor.
+	RelinkedSalesEntities int64 `json:"relinkedSalesEntities"`
 }
 
 // StatusUpdateRequest is the body for POST /partner/v1/{resource}/{id}/status.
@@ -505,10 +673,277 @@ type StatusUpdateRequest struct {
 	ActionDescription string `json:"actionDescription,omitempty"`
 }
 
+// MeResponse describes the authenticated credential (GET /partner/v1/me):
+// who it belongs to and what it may do.
+type MeResponse struct {
+	CompanyID   string `json:"companyId"`
+	CompanyName string `json:"companyName,omitempty"`
+	// CredentialType is "api_key" or "oauth_client".
+	CredentialType string      `json:"credentialType"`
+	Scopes         []string    `json:"scopes"`
+	RateLimit      MeRateLimit `json:"rateLimit"`
+}
+
+// MeRateLimit reports the per-credential throttle configuration.
+type MeRateLimit struct {
+	RequestsPerSecond int `json:"requestsPerSecond"`
+	Burst             int `json:"burst"`
+}
+
 // OAuthTokenResponse is the JSON body from POST /oauth/token.
 type OAuthTokenResponse struct {
 	AccessToken string `json:"access_token"`
 	TokenType   string `json:"token_type"`
 	ExpiresIn   int    `json:"expires_in"`
 	Scope       string `json:"scope,omitempty"`
+}
+
+// UserItem is one salesperson/user record — resolve PartnerSalesperson.ID
+// from sales DTOs into a full profile.
+type UserItem struct {
+	ID     string `json:"id"`
+	Name   string `json:"name,omitempty"`
+	Email  string `json:"email,omitempty"`
+	Phone  string `json:"phone,omitempty"`
+	Active bool   `json:"active"`
+	// LocationIDs the user can access. Empty when AllLocations is true.
+	LocationIDs       []string `json:"locationIds"`
+	AllLocations      bool     `json:"allLocations"`
+	InLeadRoutingPool bool     `json:"inLeadRoutingPool"`
+	CreatedAt         string   `json:"createdAt,omitempty"`
+}
+
+// UserListParams are query params for GET /partner/v1/users.
+type UserListParams struct {
+	PaginationParams
+	Search string `json:"search,omitempty"`
+	// Active filters by the active flag when non-nil.
+	Active *bool `json:"active,omitempty"`
+}
+
+// StatusChangeActor is who made a status change.
+type StatusChangeActor struct {
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+// StatusChangeItem is one entry from a /status-history sub-resource.
+type StatusChangeItem struct {
+	Status         string            `json:"status"`
+	PreviousStatus string            `json:"previousStatus,omitempty"`
+	Description    string            `json:"description,omitempty"`
+	ChangedAt      string            `json:"changedAt,omitempty"`
+	Actor          StatusChangeActor `json:"actor"`
+}
+
+// LineItem is one curated line item from a /line-items sub-resource.
+type LineItem struct {
+	ID        string  `json:"id"`
+	ProductID string  `json:"productId,omitempty"`
+	Name      string  `json:"name"`
+	ColorName string  `json:"colorName,omitempty"`
+	Quantity  float64 `json:"quantity"`
+	Amount    float64 `json:"amount"`
+	// Status is "included", "added", or "removed".
+	Status            string `json:"status"`
+	IsStandardFeature bool   `json:"isStandardFeature"`
+	Category          string `json:"category,omitempty"`
+	Side              string `json:"side,omitempty"`
+}
+
+// LineItemTotals are counts per line item status.
+type LineItemTotals struct {
+	Included int `json:"included"`
+	Added    int `json:"added"`
+	Removed  int `json:"removed"`
+}
+
+// BuildingConfiguration is the configuration block derived from the linked
+// configurator design.
+type BuildingConfiguration struct {
+	Model        string `json:"model,omitempty"`
+	Siding       string `json:"siding,omitempty"`
+	SidingColor  string `json:"sidingColor,omitempty"`
+	TrimColor    string `json:"trimColor,omitempty"`
+	RoofMaterial string `json:"roofMaterial,omitempty"`
+	RoofColor    string `json:"roofColor,omitempty"`
+}
+
+// LineItemsResponse is the envelope for the /line-items sub-resources.
+type LineItemsResponse struct {
+	Data   []LineItem     `json:"data"`
+	Totals LineItemTotals `json:"totals"`
+	// Configuration is nil when the entity has no linked configurator design.
+	Configuration *BuildingConfiguration `json:"configuration,omitempty"`
+}
+
+// ContractSummary is the read-only contract signing state from
+// GET /partner/v1/orders/{id}/contract.
+type ContractSummary struct {
+	OrderID string `json:"orderId"`
+	// Status is "draft", "out_for_signature", "partially_signed", or "completed".
+	Status              string `json:"status"`
+	ContractVersion     string `json:"contractVersion,omitempty"`
+	ContractNumber      string `json:"contractNumber,omitempty"`
+	CustomerSigned      bool   `json:"customerSigned"`
+	CustomerSignedAt    string `json:"customerSignedAt,omitempty"`
+	SalespersonSigned   bool   `json:"salespersonSigned"`
+	SalespersonSignedAt string `json:"salespersonSignedAt,omitempty"`
+	// SignedPdfDocumentID is usable against Client.Documents.Download.
+	SignedPdfDocumentID string `json:"signedPdfDocumentId,omitempty"`
+}
+
+// PaymentItem is one payment record.
+type PaymentItem struct {
+	ID         string  `json:"id"`
+	OrderID    string  `json:"orderId,omitempty"`
+	CustomerID string  `json:"customerId,omitempty"`
+	Amount     float64 `json:"amount"`
+	// Method is "card", "ach", "cash", "check", "financed", or "manual".
+	Method      string `json:"method,omitempty"`
+	Status      string `json:"status,omitempty"`
+	Description string `json:"description,omitempty"`
+	// ProviderReference is the Stripe checkout-session / payment-intent id;
+	// empty for manual records.
+	ProviderReference string  `json:"providerReference,omitempty"`
+	RefundedAmount    float64 `json:"refundedAmount,omitempty"`
+	RefundedAt        string  `json:"refundedAt,omitempty"`
+	CreatedAt         string  `json:"createdAt,omitempty"`
+}
+
+// PaymentListParams are query params for GET /partner/v1/payments.
+type PaymentListParams struct {
+	PaginationParams
+	OrderID     string `json:"orderId,omitempty"`
+	Status      string `json:"status,omitempty"`
+	CreatedFrom string `json:"createdFrom,omitempty"`
+	CreatedTo   string `json:"createdTo,omitempty"`
+}
+
+// DocumentItem is one file metadata row from GET /partner/v1/documents.
+type DocumentItem struct {
+	ID       string `json:"id"`
+	Name     string `json:"name,omitempty"`
+	FileName string `json:"fileName,omitempty"`
+	// Type is the stored category, e.g. "Contract".
+	Type      string `json:"type,omitempty"`
+	MimeType  string `json:"mimeType,omitempty"`
+	SizeBytes int64  `json:"sizeBytes,omitempty"`
+	CreatedAt string `json:"createdAt,omitempty"`
+}
+
+// DocumentListParams are query params for GET /partner/v1/documents.
+// EntityType and EntityID are required.
+type DocumentListParams struct {
+	PaginationParams
+	// EntityType is "order", "quote", or "workOrder".
+	EntityType string `json:"entityType"`
+	EntityID   string `json:"entityId"`
+	// Type filters by stored category, e.g. "Contract".
+	Type string `json:"type,omitempty"`
+}
+
+// DocumentDownload is the short-lived presigned download from
+// GET /partner/v1/documents/{id}/download. Fetch it right before
+// downloading — the URL expires in ~10 minutes.
+type DocumentDownload struct {
+	DownloadURL string `json:"downloadUrl"`
+	FileName    string `json:"fileName,omitempty"`
+	ExpiresAt   string `json:"expiresAt"`
+}
+
+// EventItem is one change event from the GET /partner/v1/events feed (or a
+// webhook body).
+type EventItem struct {
+	// ID is unique and monotonic — use as a cursor and for webhook dedupe.
+	ID string `json:"id"`
+	// Type is e.g. "order.status_changed", "order.cancelled", "payment.paid",
+	// "contract.completed", "delivery.scheduled", "delivery.dispatched",
+	// "delivery.delivered", "customer.merged", "quote.sent", "quote.expired".
+	Type            string             `json:"type"`
+	OccurredAt      string             `json:"occurredAt"`
+	ResourceType    string             `json:"resourceType"`
+	ResourceID      string             `json:"resourceId"`
+	ResourceVersion int64              `json:"resourceVersion,omitempty"`
+	ResourceURL     string             `json:"resourceUrl,omitempty"`
+	ExternalRefs    ExternalReferences `json:"externalReferences,omitempty"`
+	// Data is a compact snapshot of the changed resource.
+	Data map[string]any `json:"data,omitempty"`
+}
+
+// EventListParams are query params for GET /partner/v1/events.
+type EventListParams struct {
+	// Cursor resumes after this event id (exclusive). Empty starts from the
+	// oldest retained event.
+	Cursor string `json:"cursor,omitempty"`
+	// Types filters to these event types (joined with commas for you).
+	Types []string `json:"-"`
+	Limit int      `json:"limit,omitempty"`
+}
+
+// EventListResponse is the envelope for GET /partner/v1/events.
+type EventListResponse struct {
+	Data []EventItem `json:"data"`
+	// NextCursor is passed as Cursor on the next call. Empty when Data is empty.
+	NextCursor string `json:"nextCursor,omitempty"`
+	HasMore    bool   `json:"hasMore"`
+}
+
+// EventRedeliverResponse is the body from POST /partner/v1/events/{id}/redeliver.
+type EventRedeliverResponse struct {
+	EventID string `json:"eventId"`
+	// Enqueued is the number of active webhook subscriptions the event was
+	// re-enqueued for.
+	Enqueued int `json:"enqueued"`
+}
+
+// WebhookDeliveryItem is one webhook delivery attempt from
+// GET /partner/v1/webhook-deliveries.
+type WebhookDeliveryItem struct {
+	ID             string `json:"id"`
+	SubscriptionID string `json:"subscriptionId"`
+	EventID        string `json:"eventId"`
+	EventType      string `json:"eventType"`
+	URL            string `json:"url"`
+	Attempt        int    `json:"attempt"`
+	StatusCode     int    `json:"statusCode,omitempty"`
+	OK             bool   `json:"ok"`
+	Error          string `json:"error,omitempty"`
+	DurationMs     int64  `json:"durationMs,omitempty"`
+	DeliveredAt    string `json:"deliveredAt"`
+}
+
+// WebhookDeliveryListParams are query params for GET /partner/v1/webhook-deliveries.
+type WebhookDeliveryListParams struct {
+	PaginationParams
+	EventID        string `json:"eventId,omitempty"`
+	SubscriptionID string `json:"subscriptionId,omitempty"`
+}
+
+// ConfiguratorSessionCreateRequest is the body for
+// POST /partner/v1/configurator-sessions. Identify the design to open with
+// QuoteID (reopen a saved quote) or WorkOrderID/SerialNumber (start from an
+// in-stock unit); omit all three for a blank session.
+type ConfiguratorSessionCreateRequest struct {
+	CustomerID   string `json:"customerId"`
+	LocationID   string `json:"locationId"`
+	QuoteID      string `json:"quoteId,omitempty"`
+	WorkOrderID  string `json:"workOrderId,omitempty"`
+	SerialNumber string `json:"serialNumber,omitempty"`
+	// ReturnURL must match your company's launch allowlist
+	// (Settings > Developer API).
+	ReturnURL string `json:"returnUrl,omitempty"`
+	// TTLSeconds is the launch-token lifetime (default 900, max 3600).
+	TTLSeconds int `json:"ttlSeconds,omitempty"`
+}
+
+// ConfiguratorSessionCreateResponse is the created launch session.
+type ConfiguratorSessionCreateResponse struct {
+	SessionID string `json:"sessionId"`
+	// LaunchURL is single-use — open it in the customer's browser before
+	// ExpiresAt.
+	LaunchURL  string `json:"launchUrl"`
+	ExpiresAt  string `json:"expiresAt"`
+	CustomerID string `json:"customerId,omitempty"`
+	QuoteID    string `json:"quoteId,omitempty"`
 }
