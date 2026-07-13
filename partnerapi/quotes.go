@@ -126,3 +126,28 @@ func (s *QuotesService) LineItems(ctx context.Context, id string) (*LineItemsRes
 	}
 	return &out, nil
 }
+
+// AddLineItem adds one upgrade line to the quote. Idempotent on LineKey.
+// Header pricing is not recalculated — Update the quote's pricing fields
+// afterward.
+func (s *QuotesService) AddLineItem(ctx context.Context, id string, body LineItemCreateRequest) (*LineItemCreateResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out LineItemCreateResponse
+	path := fmt.Sprintf("/partner/v1/quotes/%s/line-items", url.PathEscape(id))
+	if err := s.c.http.request(ctx, http.MethodPost, path, nil, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// DeleteLineItem removes one upgrade line by its line id. The base product
+// line cannot be deleted.
+func (s *QuotesService) DeleteLineItem(ctx context.Context, id, lineID string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	path := fmt.Sprintf("/partner/v1/quotes/%s/line-items/%s", url.PathEscape(id), url.PathEscape(lineID))
+	return s.c.http.request(ctx, http.MethodDelete, path, nil, nil, nil)
+}

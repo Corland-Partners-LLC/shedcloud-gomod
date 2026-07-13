@@ -368,6 +368,247 @@ func TestUpdateSendsIfMatchAndSubResources(t *testing.T) {
 	}
 }
 
+func TestOrderPaymentWrites(t *testing.T) {
+	t.Parallel()
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/partner/v1/orders/order-9/payments":
+			if r.Header.Get("Idempotency-Key") != "idem-pay-1" {
+				t.Errorf("Idempotency-Key = %q", r.Header.Get("Idempotency-Key"))
+			}
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["method"] != "check" || body["amount"] != 500.0 || body["checkNumber"] != "1042" {
+				t.Errorf("body = %+v", body)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "pay-1", "orderId": "order-9", "amount": 500.0,
+				"method": "check", "status": "paid",
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/partner/v1/orders/order-9/payment-links":
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["amount"] != 250.0 || body["sendEmail"] != false {
+				t.Errorf("body = %+v", body)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"url": "https://checkout.stripe.com/c/pay/cs_test_1", "sessionId": "cs_test_1",
+				"expiresAt": "2026-07-14T15:00:00Z", "emailSent": false,
+			})
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	payment, err := client.Orders.CreatePayment(context.Background(), "order-9", partnerapi.PaymentCreateRequest{
+		Method:      "check",
+		Amount:      500,
+		CheckNumber: "1042",
+	}, partnerapi.WithIdempotencyKey("idem-pay-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payment.ID != "pay-1" || payment.Status != "paid" {
+		t.Fatalf("payment = %+v", payment)
+	}
+
+	sendEmail := false
+	link, err := client.Orders.CreatePaymentLink(context.Background(), "order-9", partnerapi.PaymentLinkCreateRequest{
+		Amount:    250,
+		SendEmail: &sendEmail,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if link.SessionID != "cs_test_1" || link.EmailSent {
+		t.Fatalf("link = %+v", link)
+	}
+}
+
+func TestUserWritesAndRoles(t *testing.T) {
+	t.Parallel()
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/partner/v1/users":
+			if r.Header.Get("Idempotency-Key") != "idem-user-1" {
+				t.Errorf("Idempotency-Key = %q", r.Header.Get("Idempotency-Key"))
+			}
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["firstName"] != "Alex" || body["email"] != "alex@example.com" ||
+				body["roleId"] != "665f0a1b2c3d4e5f60718293" || body["allLocations"] != true {
+				t.Errorf("body = %+v", body)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "user-1", "name": "Alex Rep", "email": "alex@example.com",
+				"active": true, "allLocations": true, "locationIds": []string{},
+			})
+		case r.Method == http.MethodPatch && r.URL.Path == "/partner/v1/users/user-1":
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["active"] != false {
+				t.Errorf("body = %+v", body)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "user-1", "active": false, "locationIds": []string{},
+			})
+		case r.Method == http.MethodGet && r.URL.Path == "/partner/v1/roles":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data": []map[string]any{{"id": "665f0a1b2c3d4e5f60718293", "name": "Salesperson", "isSystem": true}},
+			})
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	roles, err := client.Users.Roles(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(roles.Data) != 1 || roles.Data[0].Name != "Salesperson" {
+		t.Fatalf("roles = %+v", roles)
+	}
+
+	user, err := client.Users.Create(context.Background(), partnerapi.UserCreateRequest{
+		FirstName:    "Alex",
+		LastName:     "Rep",
+		Email:        "alex@example.com",
+		RoleID:       roles.Data[0].ID,
+		AllLocations: true,
+	}, partnerapi.WithIdempotencyKey("idem-user-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.ID != "user-1" || !user.AllLocations {
+		t.Fatalf("user = %+v", user)
+	}
+
+	inactive := false
+	updated, err := client.Users.Update(context.Background(), user.ID, partnerapi.UserPatchRequest{Active: &inactive})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Active {
+		t.Fatalf("updated = %+v", updated)
+	}
+}
+
+func TestWorkOrderCreate(t *testing.T) {
+	t.Parallel()
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/partner/v1/work-orders" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if r.Header.Get("Idempotency-Key") != "idem-wo-1" {
+			t.Errorf("Idempotency-Key = %q", r.Header.Get("Idempotency-Key"))
+		}
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body["locationId"] != "dallas-lot" || body["purchaseType"] != "new-build" ||
+			body["workOrderType"] != "made-to-order" || body["deliveryType"] != "delivery-from-factory" ||
+			body["sizeId"] != "size-1" || body["serialNumber"] != "SC-2026-999" {
+			t.Errorf("body = %+v", body)
+		}
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "wo-1", "workOrderNumber": 5013, "status": "Customer Care",
+			"serialNumber": "SC-2026-999",
+		})
+	})
+
+	wo, err := client.WorkOrders.Create(context.Background(), partnerapi.WorkOrderCreateRequest{
+		LocationID:    "dallas-lot",
+		PurchaseType:  "new-build",
+		WorkOrderType: "made-to-order",
+		DeliveryType:  "delivery-from-factory",
+		SerialNumber:  "SC-2026-999",
+		SizeID:        "size-1",
+	}, partnerapi.WithIdempotencyKey("idem-wo-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wo.ID != "wo-1" || wo.Status != "Customer Care" || wo.WorkOrderNumber != 5013 {
+		t.Fatalf("work order = %+v", wo)
+	}
+}
+
+func TestOrderCreateAndLineItemWrites(t *testing.T) {
+	t.Parallel()
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/partner/v1/orders":
+			if r.Header.Get("Idempotency-Key") != "idem-order-1" {
+				t.Errorf("Idempotency-Key = %q", r.Header.Get("Idempotency-Key"))
+			}
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["customerId"] != "cust-1" || body["locationId"] != "loc-1" || body["productId"] != "prod-1" {
+				t.Errorf("body = %+v", body)
+			}
+			cfg, _ := body["configuration"].(map[string]any)
+			if cfg["sidingColor"] != "Barn Red" {
+				t.Errorf("configuration = %+v", cfg)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "order-9", "orderNumber": 5100, "status": "Unsubmitted",
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/partner/v1/orders/order-9/line-items":
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["productId"] != "upg-1" || body["lineKey"] != "line-a" {
+				t.Errorf("line item body = %+v", body)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"lineId": "line-a", "productId": "upg-1", "quantity": 1.0, "created": true,
+			})
+		case r.Method == http.MethodDelete && r.URL.Path == "/partner/v1/orders/order-9/line-items/line-a":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+
+	order, err := client.Orders.Create(context.Background(), partnerapi.OrderCreateRequest{
+		CustomerID: "cust-1",
+		LocationID: "loc-1",
+		ProductID:  "prod-1",
+		Configuration: &partnerapi.OrderCreateConfiguration{
+			SidingColor: "Barn Red",
+		},
+	}, partnerapi.WithIdempotencyKey("idem-order-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if order.ID != "order-9" || order.Status != "Unsubmitted" {
+		t.Fatalf("order = %+v", order)
+	}
+
+	line, err := client.Orders.AddLineItem(context.Background(), "order-9", partnerapi.LineItemCreateRequest{
+		ProductID: "upg-1",
+		LineKey:   "line-a",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line.LineID != "line-a" || !line.Created {
+		t.Fatalf("line = %+v", line)
+	}
+
+	if err := client.Orders.DeleteLineItem(context.Background(), "order-9", "line-a"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestVerifyWebhookSignature(t *testing.T) {
 	t.Parallel()
 	secret := "whsec_test_secret"

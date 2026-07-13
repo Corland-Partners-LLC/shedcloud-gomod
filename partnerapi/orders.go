@@ -37,6 +37,46 @@ func (s *OrdersService) Get(ctx context.Context, id string) (*OrderItem, error) 
 	return &out, nil
 }
 
+// Create creates a full sales order: customer (existing id or inline),
+// location, base product (model + optional size), optional upgrades, pricing
+// header, and configurator payload. New orders start in "Unsubmitted". Pass
+// WithIdempotencyKey to make retries safe.
+func (s *OrdersService) Create(ctx context.Context, body OrderCreateRequest, opts ...RequestOption) (*OrderItem, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out OrderItem
+	if err := s.c.http.request(ctx, http.MethodPost, "/partner/v1/orders", nil, body, &out, opts...); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// AddLineItem adds one upgrade line to the order. Idempotent on LineKey.
+// Header pricing is not recalculated — Update the order's pricing fields
+// afterward.
+func (s *OrdersService) AddLineItem(ctx context.Context, id string, body LineItemCreateRequest) (*LineItemCreateResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out LineItemCreateResponse
+	path := fmt.Sprintf("/partner/v1/orders/%s/line-items", url.PathEscape(id))
+	if err := s.c.http.request(ctx, http.MethodPost, path, nil, body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// DeleteLineItem removes one upgrade line by its line id. The base product
+// line cannot be deleted.
+func (s *OrdersService) DeleteLineItem(ctx context.Context, id, lineID string) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	path := fmt.Sprintf("/partner/v1/orders/%s/line-items/%s", url.PathEscape(id), url.PathEscape(lineID))
+	return s.c.http.request(ctx, http.MethodDelete, path, nil, nil, nil)
+}
+
 // Update patches allowlisted sales order fields. Pass WithIfMatch(version)
 // for optimistic concurrency.
 func (s *OrdersService) Update(ctx context.Context, id string, body OrderPatchRequest, opts ...RequestOption) (*OrderItem, error) {
@@ -115,6 +155,39 @@ func (s *OrdersService) Payments(ctx context.Context, id string, params Paginati
 	var out PaginatedResponse[PaymentItem]
 	path := fmt.Sprintf("/partner/v1/orders/%s/payments", url.PathEscape(id))
 	if err := s.c.http.request(ctx, http.MethodGet, path, params, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// CreatePayment records a manual payment (cash, check, financed, manual) on
+// the order through the portal's own pipeline (ledger recalc, audit).
+// Card/ACH are rejected — use CreatePaymentLink instead. Pass
+// WithIdempotencyKey to make retries safe. Requires
+// partner-api.payments.write.
+func (s *OrdersService) CreatePayment(ctx context.Context, id string, body PaymentCreateRequest, opts ...RequestOption) (*PaymentItem, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out PaymentItem
+	path := fmt.Sprintf("/partner/v1/orders/%s/payments", url.PathEscape(id))
+	if err := s.c.http.request(ctx, http.MethodPost, path, nil, body, &out, opts...); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// CreatePaymentLink creates a Stripe Checkout session for the order and
+// returns the hosted payment URL. The webhook pipeline records the payment
+// when the customer pays. The customer receives the payment-link email
+// unless SendEmail is false. Requires partner-api.payments.write.
+func (s *OrdersService) CreatePaymentLink(ctx context.Context, id string, body PaymentLinkCreateRequest) (*PaymentLinkResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out PaymentLinkResponse
+	path := fmt.Sprintf("/partner/v1/orders/%s/payment-links", url.PathEscape(id))
+	if err := s.c.http.request(ctx, http.MethodPost, path, nil, body, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

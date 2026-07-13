@@ -37,6 +37,21 @@ func (s *WorkOrdersService) Get(ctx context.Context, id string) (*WorkOrderItem,
 	return &out, nil
 }
 
+// Create creates a manufacturing work order (portal building-wizard parity:
+// status starts in "Customer Care", the number is allocated automatically,
+// and an optional SizeID attaches the product). Pass WithIdempotencyKey to
+// make retries safe.
+func (s *WorkOrdersService) Create(ctx context.Context, body WorkOrderCreateRequest, opts ...RequestOption) (*WorkOrderItem, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	var out WorkOrderItem
+	if err := s.c.http.request(ctx, http.MethodPost, "/partner/v1/work-orders", nil, body, &out, opts...); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // Update patches allowlisted work order fields. Pass WithIfMatch(version)
 // for optimistic concurrency.
 func (s *WorkOrdersService) Update(ctx context.Context, id string, body WorkOrderPatchRequest, opts ...RequestOption) (*WorkOrderItem, error) {

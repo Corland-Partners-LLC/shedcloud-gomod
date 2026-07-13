@@ -22,6 +22,7 @@ type Client struct {
 	WorkOrders           *WorkOrdersService
 	Locations            *LocationsService
 	Customers            *CustomersService
+	Domains              *DomainsService
 	Products             *ProductsService
 	Users                *UsersService
 	Payments             *PaymentsService
@@ -105,6 +106,7 @@ func New(opts Options) (*Client, error) {
 	c.WorkOrders = &WorkOrdersService{c: c}
 	c.Locations = &LocationsService{c: c}
 	c.Customers = &CustomersService{c: c}
+	c.Domains = &DomainsService{c: c}
 	c.Products = &ProductsService{c: c}
 	c.Users = &UsersService{c: c}
 	c.Payments = &PaymentsService{c: c}

@@ -627,6 +627,180 @@ func TestProductList(t *testing.T) {
 	}
 }
 
+func TestProductCreateUpdateAndSize(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/partner/v1/products":
+			if r.Header.Get("Idempotency-Key") != "idem-prod-1" {
+				t.Errorf("Idempotency-Key = %q", r.Header.Get("Idempotency-Key"))
+			}
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["name"] != "10x16 Lofted Barn" || body["lineId"] != "line-1" {
+				t.Errorf("body = %+v", body)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "prod-9", "name": "10x16 Lofted Barn", "price": 0, "active": true,
+			})
+		case r.Method == http.MethodPatch && r.URL.Path == "/partner/v1/products/prod-9":
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			if body["price"] != float64(8995.5) {
+				t.Errorf("patch body = %+v", body)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "prod-9", "price": 8995.5, "active": true,
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/partner/v1/products/prod-9/sizes":
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "size-1", "productId": "prod-9", "name": "10x16",
+				"width": 10, "length": 16, "price": 8995.5, "active": true,
+			})
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	created, err := client.Products.Create(context.Background(), partnerapi.ProductCreateRequest{
+		Name:   "10x16 Lofted Barn",
+		LineID: "line-1",
+	}, partnerapi.WithIdempotencyKey("idem-prod-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ID != "prod-9" {
+		t.Fatalf("created = %+v", created)
+	}
+
+	price := 8995.5
+	updated, err := client.Products.Update(context.Background(), "prod-9", partnerapi.ProductPatchRequest{Price: &price})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Price != 8995.5 {
+		t.Fatalf("updated = %+v", updated)
+	}
+
+	size, err := client.Products.CreateSize(context.Background(), "prod-9", partnerapi.ProductSizeCreateRequest{
+		Width: 10, Length: 16, Price: 8995.5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if size.ProductID != "prod-9" || size.Name != "10x16" {
+		t.Fatalf("size = %+v", size)
+	}
+}
+
+func TestDomainsList(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/partner/v1/domains" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("defaultForStore") != "true" {
+			t.Errorf("defaultForStore = %q", r.URL.Query().Get("defaultForStore"))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{{
+				"integrationId": "int-1",
+				"subdomain":     "shop.lelandsheds.com",
+				"apexDomain":    "lelandsheds.com",
+				"verified":      true,
+				"locations": []map[string]any{{
+					"locationId":      "loc-1",
+					"name":            "Main Lot",
+					"hidePrices":      false,
+					"defaultForStore": true,
+					"products": []map[string]any{{
+						"productId": "prod-1",
+						"sizes":     []string{"size-1", "size-2"},
+					}},
+				}},
+			}},
+			"page": 1, "limit": 50, "total": 1,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defaultOnly := true
+	res, err := client.Domains.List(context.Background(), partnerapi.DomainListParams{
+		DefaultForStore: &defaultOnly,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Data) != 1 {
+		t.Fatalf("unexpected response: %+v", res)
+	}
+	d := res.Data[0]
+	if d.Subdomain != "shop.lelandsheds.com" || !d.Verified {
+		t.Fatalf("domain = %+v", d)
+	}
+	if len(d.Locations) != 1 || !d.Locations[0].DefaultForStore || len(d.Locations[0].Products) != 1 {
+		t.Fatalf("locations = %+v", d.Locations)
+	}
+}
+
+func TestLocationDomains(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/partner/v1/locations/loc-1/domains" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{{
+				"integrationId": "int-1",
+				"subdomain":     "shop.lelandsheds.com",
+				"verified":      false,
+				"locations": []map[string]any{{
+					"locationId":      "loc-1",
+					"defaultForStore": false,
+				}},
+			}},
+			"page": 1, "limit": 50, "total": 1,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := client.Domains.ForLocation(context.Background(), "loc-1", partnerapi.LocationDomainListParams{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Data) != 1 || res.Data[0].Locations[0].LocationID != "loc-1" {
+		t.Fatalf("unexpected response: %+v", res)
+	}
+}
+
 func TestNewRequiresAuth(t *testing.T) {
 	t.Parallel()
 	if _, err := partnerapi.New(partnerapi.Options{}); err == nil {
