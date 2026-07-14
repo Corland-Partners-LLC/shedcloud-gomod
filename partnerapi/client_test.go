@@ -796,8 +796,89 @@ func TestLocationDomains(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Data) != 1 || res.Data[0].Locations[0].LocationID != "loc-1" {
+  if len(res.Data) != 1 || res.Data[0].Locations[0].LocationID != "loc-1" {
 		t.Fatalf("unexpected response: %+v", res)
+	}
+}
+
+func TestAgreementsList(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/partner/v1/agreements" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("status") != "active" {
+			t.Errorf("status = %q", r.URL.Query().Get("status"))
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{{
+				"id":        "ag-1",
+				"direction": "DMAN_RTO",
+				"status":    "active",
+				"from":      map[string]any{"companyId": "from-1", "name": "Dealer"},
+				"to":        map[string]any{"companyId": "to-1", "name": "AFG Rentals, LLC"},
+			}},
+			"page": 1, "limit": 25, "total": 1,
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := client.Agreements.List(context.Background(), partnerapi.AgreementListParams{
+		Status: "active",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Data) != 1 || res.Data[0].Direction != "DMAN_RTO" {
+		t.Fatalf("unexpected response: %+v", res)
+	}
+}
+
+func TestAgreementActiveAndStateLegal(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/partner/v1/agreements/active":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "ag-active", "direction": "DMAN_RTO", "status": "active",
+				"from": map[string]any{"companyId": "from-1"},
+				"to":   map[string]any{"companyId": "to-1"},
+			})
+		case "/partner/v1/agreements/ag-1/state-legal/TX":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "sl-1", "agreementId": "ag-1", "stateCode": "TX",
+				"lessorLegalName": "AFG Rentals, LLC",
+			})
+		default:
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	active, err := client.Agreements.Active(context.Background())
+	if err != nil || active.ID != "ag-active" {
+		t.Fatalf("active = %+v, err = %v", active, err)
+	}
+
+	sl, err := client.Agreements.GetStateLegal(context.Background(), "ag-1", "TX")
+	if err != nil || sl.StateCode != "TX" {
+		t.Fatalf("state legal = %+v, err = %v", sl, err)
 	}
 }
 

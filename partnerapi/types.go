@@ -53,6 +53,8 @@ type PartnerRTO struct {
 	DamageWaiver    float64 `json:"damageWaiver,omitempty"`
 	TotalDueToday   float64 `json:"totalDueToday,omitempty"`
 	Balance         float64 `json:"balance,omitempty"`
+	// AgreementID is the B2B agreement linked on the sales order (SOField1724).
+	AgreementID string `json:"agreementId,omitempty"`
 	// ProviderName is the financing provider's name — populated on
 	// get-by-id only.
 	ProviderName string `json:"providerName,omitempty"`
@@ -848,6 +850,106 @@ type LocationDomainListParams struct {
 	PaginationParams
 	// DefaultForStore true → only the entry flagged Default For Store.
 	DefaultForStore *bool `json:"defaultForStore,omitempty"`
+}
+
+// AgreementCounterparty is one endpoint of a B2B agreement.
+type AgreementCounterparty struct {
+	CompanyID   string `json:"companyId"`
+	CompanyType string `json:"companyType,omitempty"`
+	Name        string `json:"name,omitempty"`
+}
+
+// AgreementTermRate is one term/monthly-rate pair in a rate schedule.
+type AgreementTermRate struct {
+	Months int     `json:"months"`
+	Rate   float64 `json:"rate"`
+}
+
+// AgreementSecurityDepositRule is a tiered security-deposit percent rule.
+type AgreementSecurityDepositRule struct {
+	MinAmount float64 `json:"minAmount"`
+	Percent   float64 `json:"percent"`
+}
+
+// AgreementStateRateSchedule is per-state RTO rate configuration.
+type AgreementStateRateSchedule struct {
+	StateCode              string                         `json:"stateCode"`
+	TermRates              []AgreementTermRate            `json:"termRates,omitempty"`
+	SecurityDepositOptions []float64                      `json:"securityDepositOptions,omitempty"`
+	SecurityDepositRules   []AgreementSecurityDepositRule `json:"securityDepositRules,omitempty"`
+}
+
+// AgreementSecurityDepositPolicy is the agreement-level security deposit policy.
+type AgreementSecurityDepositPolicy struct {
+	Type         string   `json:"type,omitempty"`
+	OtherPercent *float64 `json:"otherPercent,omitempty"`
+}
+
+// AgreementRateConfig is the active or pending rate configuration on an agreement.
+type AgreementRateConfig struct {
+	States          []AgreementStateRateSchedule   `json:"states,omitempty"`
+	SecurityDeposit AgreementSecurityDepositPolicy `json:"securityDeposit,omitempty"`
+}
+
+// AgreementPendingUpdateSummary is a redacted pending rate-change summary.
+type AgreementPendingUpdateSummary struct {
+	Status      string `json:"status,omitempty"`
+	RequestedAt string `json:"requestedAt,omitempty"`
+	Reason      string `json:"reason,omitempty"`
+}
+
+// AgreementItem is a B2B partnership agreement from GET /partner/v1/agreements.
+type AgreementItem struct {
+	ID                       string                         `json:"id"`
+	Direction                string                         `json:"direction"`
+	Status                   string                         `json:"status"`
+	From                     AgreementCounterparty          `json:"from"`
+	To                       AgreementCounterparty          `json:"to"`
+	RateConfig               *AgreementRateConfig           `json:"rateConfig,omitempty"`
+	RateConfigVersion        int64                          `json:"rateConfigVersion,omitempty"`
+	PendingRateConfig        *AgreementRateConfig           `json:"pendingRateConfig,omitempty"`
+	PendingRateConfigVersion int64                          `json:"pendingRateConfigVersion,omitempty"`
+	PendingUpdate            *AgreementPendingUpdateSummary `json:"pendingUpdate,omitempty"`
+	OrderCount               int64                          `json:"orderCount,omitempty"`
+	HasOrders                bool                           `json:"hasOrders,omitempty"`
+	CreatedAt                string                         `json:"createdAt,omitempty"`
+	UpdatedAt                string                         `json:"updatedAt,omitempty"`
+}
+
+// AgreementListParams are query params for GET /partner/v1/agreements.
+type AgreementListParams struct {
+	PaginationParams
+	Status string `json:"status,omitempty"`
+	Search string `json:"search,omitempty"`
+}
+
+// AgreementStateLegalSection is one section in a state legal appendix.
+type AgreementStateLegalSection struct {
+	SortOrder int    `json:"sortOrder"`
+	Title     string `json:"title,omitempty"`
+	Body      string `json:"body,omitempty"`
+}
+
+// AgreementStateLegalItem is per-state RTO legal configuration.
+type AgreementStateLegalItem struct {
+	ID                       string                       `json:"id"`
+	AgreementID              string                       `json:"agreementId"`
+	StateCode                string                       `json:"stateCode"`
+	LessorLegalName          string                       `json:"lessorLegalName,omitempty"`
+	LessorAddressLine1       string                       `json:"lessorAddressLine1,omitempty"`
+	LessorAddressLine2       string                       `json:"lessorAddressLine2,omitempty"`
+	Sections                 []AgreementStateLegalSection `json:"sections,omitempty"`
+	ArbitrationText          string                       `json:"arbitrationText,omitempty"`
+	AcknowledgementText      string                       `json:"acknowledgementText,omitempty"`
+	IncludeCustomerDataSheet bool                         `json:"includeCustomerDataSheet,omitempty"`
+	IncludeStateRpaPages     bool                         `json:"includeStateRpaPages,omitempty"`
+	CreatedAt                string                       `json:"createdAt,omitempty"`
+	UpdatedAt                string                       `json:"updatedAt,omitempty"`
+}
+
+// AgreementStateLegalListResponse is the list envelope for state legal rows.
+type AgreementStateLegalListResponse struct {
+	Data []AgreementStateLegalItem `json:"data"`
 }
 
 // CustomerCreateRequest is the body for POST /partner/v1/customers.
