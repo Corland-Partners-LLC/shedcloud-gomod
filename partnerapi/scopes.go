@@ -28,6 +28,7 @@ const (
 	ScopeConfiguratorSessionsWrite = "partner-api.configurator-sessions.write"
 	ScopeDomainsRead               = "partner-api.domains.read"
 	ScopeAgreementsRead            = "partner-api.agreements.read"
+	ScopeCompanyRead               = "partner-api.company.read"
 	ScopeProductsWrite             = "partner-api.products.write"
 )
 
@@ -57,5 +58,6 @@ var AllScopes = []string{
 	ScopeConfiguratorSessionsWrite,
 	ScopeDomainsRead,
 	ScopeAgreementsRead,
+	ScopeCompanyRead,
 	ScopeProductsWrite,
 }

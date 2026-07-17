@@ -1031,6 +1031,23 @@ type MeRateLimit struct {
 	Burst             int `json:"burst"`
 }
 
+// CompanyItem is the authenticated company profile (GET /partner/v1/company).
+type CompanyItem struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name,omitempty"`
+	Email       string   `json:"email,omitempty"`
+	Phone       string   `json:"phone,omitempty"`
+	Address     string   `json:"address,omitempty"`
+	City        string   `json:"city,omitempty"`
+	State       string   `json:"state,omitempty"`
+	ZipCode     string   `json:"zipCode,omitempty"`
+	Country     string   `json:"country,omitempty"`
+	Timezone    string   `json:"timezone,omitempty"`
+	LogoURL     string   `json:"logoUrl,omitempty"`
+	CompanyType string   `json:"companyType,omitempty"`
+	SellTypes   []string `json:"sellTypes,omitempty"`
+}
+
 // OAuthTokenResponse is the JSON body from POST /oauth/token.
 type OAuthTokenResponse struct {
 	AccessToken string `json:"access_token"`
