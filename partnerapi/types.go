@@ -123,6 +123,9 @@ type LotStockItem struct {
 	LocationName string   `json:"locationName,omitempty"`
 	LocationSlug string   `json:"locationSlug,omitempty"`
 	Images       []string `json:"images,omitempty"`
+	// HeroImages are public CDN URLs for uploaded Hero_Images / Product_Images
+	// on the work order. Empty when none are registered.
+	HeroImages []string `json:"heroImages,omitempty"`
 	// Attributes is nil when the unit has no configurator.
 	Attributes *LotStockAttributes `json:"attributes,omitempty"`
 	Sold       bool                `json:"sold"`
