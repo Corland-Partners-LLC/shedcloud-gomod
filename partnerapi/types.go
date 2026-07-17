@@ -356,7 +356,10 @@ type LotStockListParams struct {
 	Location     string `json:"location,omitempty"`
 	// Region filters to units at locations carrying this exact region label
 	// (dealer-defined). Combined with Location, both constraints must hold.
-	Region string    `json:"region,omitempty"`
+	Region string `json:"region,omitempty"`
+	// Siding filters by siding product ObjectId or a case-insensitive substring
+	// of the siding display name (e.g. "LP Smart Side").
+	Siding string    `json:"siding,omitempty"`
 	Search string    `json:"search,omitempty"`
 	Sort   string    `json:"sort,omitempty"` // serialNumber | title | price | createdAt
 	Order  SortOrder `json:"order,omitempty"`
