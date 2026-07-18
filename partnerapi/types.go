@@ -129,6 +129,12 @@ type LotStockItem struct {
 	// Attributes is nil when the unit has no configurator.
 	Attributes *LotStockAttributes `json:"attributes,omitempty"`
 	Sold       bool                `json:"sold"`
+	// StoreExpirationDays is the grace period after Processed before hiding from Partner lot-stock.
+	StoreExpirationDays int `json:"storeExpirationDays,omitempty"`
+	// ShowWhenExpired keeps the unit visible on Partner lot-stock after expiration.
+	ShowWhenExpired bool `json:"showWhenExpired,omitempty"`
+	// StoreExpirationAnchorAt is when the linked sales order reached Processed (RFC 3339).
+	StoreExpirationAnchorAt string `json:"storeExpirationAnchorAt,omitempty"`
 }
 
 // StockTemplateItem is one stock template — a buildable catalog design (not
@@ -177,6 +183,8 @@ type LeadItem struct {
 	Salesperson     PartnerSalesperson `json:"salesperson"`
 	Location        PartnerLocation    `json:"location"`
 	ExternalRefs    ExternalReferences `json:"externalReferences,omitempty"`
+	SalesSource     string             `json:"salesSource,omitempty"`
+	SourceMetadata  map[string]any     `json:"sourceMetadata,omitempty"`
 	// Version increments on every write; usable with WithIfMatch.
 	Version   int64  `json:"version,omitempty"`
 	CreatedAt string `json:"createdAt,omitempty"`
@@ -204,6 +212,8 @@ type QuoteItem struct {
 	// while the quote is still Open/Active, a quote.expired event is emitted.
 	ValidUntil   string             `json:"validUntil,omitempty"`
 	ExternalRefs ExternalReferences `json:"externalReferences,omitempty"`
+	SalesSource  string             `json:"salesSource,omitempty"`
+	SourceMetadata map[string]any   `json:"sourceMetadata,omitempty"`
 	Version      int64              `json:"version,omitempty"`
 	CreatedAt    string             `json:"createdAt,omitempty"`
 	UpdatedAt    string             `json:"updatedAt,omitempty"`
@@ -232,6 +242,8 @@ type OrderItem struct {
 	// DeliveredAt is the delivery completion timestamp (RFC 3339).
 	DeliveredAt  string             `json:"deliveredAt,omitempty"`
 	ExternalRefs ExternalReferences `json:"externalReferences,omitempty"`
+	SalesSource  string             `json:"salesSource,omitempty"`
+	SourceMetadata map[string]any   `json:"sourceMetadata,omitempty"`
 	Version      int64              `json:"version,omitempty"`
 	CreatedAt    string             `json:"createdAt,omitempty"`
 	UpdatedAt    string             `json:"updatedAt,omitempty"`
@@ -363,6 +375,9 @@ type LotStockListParams struct {
 	Search string    `json:"search,omitempty"`
 	Sort   string    `json:"sort,omitempty"` // serialNumber | title | price | createdAt
 	Order  SortOrder `json:"order,omitempty"`
+	// IgnoreStoreExpiration includes units hidden by the store-expiration grace
+	// period (Partner GET /partner/v1/lot-stock?ignoreStoreExpiration=true).
+	IgnoreStoreExpiration bool `json:"ignoreStoreExpiration,omitempty"`
 }
 
 // SalesListParams are shared list filters for leads, quotes, and orders.
@@ -523,6 +538,8 @@ type LeadPatchRequest struct {
 	SalesLocation    string `json:"salesLocation,omitempty"`
 	SalespersonName  string `json:"salespersonName,omitempty"`
 	SalespersonEmail string `json:"salespersonEmail,omitempty"`
+	SalesSource      *string `json:"salesSource,omitempty"`
+	SourceMetadata   map[string]any `json:"sourceMetadata,omitempty"`
 	// ExternalRefs keys are merged into the record's map; nil values delete keys.
 	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
 }
@@ -543,6 +560,8 @@ type LeadCreateRequest struct {
 	Customer         LeadCreateCustomer `json:"customer"`
 	SalespersonName  string             `json:"salespersonName,omitempty"`
 	SalespersonEmail string             `json:"salespersonEmail,omitempty"`
+	SalesSource      string             `json:"salesSource,omitempty"`
+	SourceMetadata   map[string]any     `json:"sourceMetadata,omitempty"`
 	ExternalRefs     ExternalReferences `json:"externalReferences,omitempty"`
 }
 
@@ -588,6 +607,8 @@ type QuoteCreateRequest struct {
 	Note            string                      `json:"note,omitempty"`
 	Customer        QuoteCreateCustomer         `json:"customer"`
 	DeliveryAddress *QuoteCreateDeliveryAddress `json:"deliveryAddress,omitempty"`
+	SalesSource     string                      `json:"salesSource,omitempty"`
+	SourceMetadata  map[string]any              `json:"sourceMetadata,omitempty"`
 	ExternalRefs    ExternalReferences          `json:"externalReferences,omitempty"`
 }
 
@@ -606,6 +627,7 @@ type QuotePatchRequest struct {
 	// ValidUntil sets the quote's expiration ("YYYY-MM-DD" or RFC 3339;
 	// date-only values cover the whole day).
 	ValidUntil *string `json:"validUntil,omitempty"`
+	SalesSource *string `json:"salesSource,omitempty"`
 	// ExternalRefs keys are merged into the record's map; nil values delete keys.
 	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
 }
@@ -661,6 +683,8 @@ type OrderCreateRequest struct {
 
 	DeliveryAddress *QuoteCreateDeliveryAddress `json:"deliveryAddress,omitempty"`
 	Note            string                      `json:"note,omitempty"`
+	SalesSource     string                      `json:"salesSource,omitempty"`
+	SourceMetadata  map[string]any              `json:"sourceMetadata,omitempty"`
 	ExternalRefs    ExternalReferences          `json:"externalReferences,omitempty"`
 }
 
@@ -753,6 +777,8 @@ type OrderPatchRequest struct {
 	DeliveryCity     string `json:"deliveryCity,omitempty"`
 	DeliveryState    string `json:"deliveryState,omitempty"`
 	DeliveryZipCode  string `json:"deliveryZipCode,omitempty"`
+	SalesSource      *string `json:"salesSource,omitempty"`
+	SourceMetadata   map[string]any `json:"sourceMetadata,omitempty"`
 	// ExternalRefs keys are merged into the record's map; nil values delete keys.
 	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
 }
