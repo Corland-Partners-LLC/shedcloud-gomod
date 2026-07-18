@@ -628,6 +628,7 @@ type QuotePatchRequest struct {
 	// date-only values cover the whole day).
 	ValidUntil *string `json:"validUntil,omitempty"`
 	SalesSource *string `json:"salesSource,omitempty"`
+	SourceMetadata map[string]any `json:"sourceMetadata,omitempty"`
 	// ExternalRefs keys are merged into the record's map; nil values delete keys.
 	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
 }
