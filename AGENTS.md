@@ -39,7 +39,8 @@ shedcloud-gomod/
 3. **Scopes** live in `scopes.go` and must stay in sync with `shedcloud-api-go/internal/partnerauth/scopes.go`.
 4. **Auth stays outside resource methods.** Resources only call `httpClient.request`. Token exchange/caching belongs in `auth.go`.
 5. **Keep the surface small.** No portal admin endpoints (`/v1/settings/api-keys`, etc.).
-6. After changing code, run `go test ./... && go vet ./...`.
+6. **`SiteEvents.Track` sends its body in snake_case** (`session_id`, `events[].event_type`, ...) — the ingest endpoint shares its envelope with the configurator tracker rather than the camelCase style of the rest of `/partner/v1`. Do not "normalize" it.
+7. After changing code, run `go test ./... && go vet ./...`.
 
 ## Adding a resource
 

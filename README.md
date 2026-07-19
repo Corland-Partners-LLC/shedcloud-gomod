@@ -314,12 +314,16 @@ an older version is always safe; it simply won't surface newer fields.
 
 - API changes: [hosted changelog](https://go.shedcloud.com/partner/reference#changelog)
 
+## Related SDKs
+
+- TypeScript/JavaScript: [`@shedcloud/partner-api`](https://www.npmjs.com/package/@shedcloud/partner-api)
+- Python: [`shedcloud-partner-api`](https://pypi.org/project/shedcloud-partner-api/)
+- PHP: [`shedcloud/partner-api`](https://github.com/Corland-Partners-LLC/shedcloud-php)
+- Ruby: [`shedcloud-partner_api`](https://rubygems.org/gems/shedcloud-partner_api)
+
 ## Docs
 
 - Partner API reference: https://go.shedcloud.com/partner/reference
 - API changelog: https://go.shedcloud.com/partner/reference#changelog
 - Backend source of truth: `shedcloud-api-go/docs/PARTNER_API.md`
-- TypeScript/JavaScript: [`@shedcloud/partner-api`](https://github.com/Corland-Partners-LLC/shedcloud-npm)
-- Python: [`shedcloud-partner-api`](https://github.com/Corland-Partners-LLC/shedcloud-pypi)
-- PHP: [`shedcloud/partner-api`](https://github.com/Corland-Partners-LLC/shedcloud-php)
-- Ruby: [`shedcloud-partner_api`](https://github.com/Corland-Partners-LLC/shedcloud-gem)
+- This module on pkg.go.dev: [`partnerapi`](https://pkg.go.dev/github.com/Corland-Partners-LLC/shedcloud-gomod/partnerapi)
