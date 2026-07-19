@@ -25,6 +25,7 @@ shedcloud-gomod/
 │   ├── quotes.go
 │   ├── orders.go
 │   ├── work_orders.go
+│   ├── site_events.go    # visitor behavioral tracking (Track uses snake_case body)
 │   └── client_test.go
 ├── examples/
 ├── go.mod

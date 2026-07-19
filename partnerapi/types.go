@@ -1322,6 +1322,96 @@ type EventListResponse struct {
 	HasMore    bool   `json:"hasMore"`
 }
 
+// SiteEventInput is one behavioral event for POST /partner/v1/site-events.
+// Only EventType is required; everything else is contextual. Event types
+// must come from the server allowlist (e.g. "page.view", "cta.click",
+// "product.view", "filter.apply", "lead.created").
+type SiteEventInput struct {
+	EventType string `json:"event_type"`
+	// OccurredAt is RFC3339. Defaults to receipt time when omitted.
+	OccurredAt  string `json:"occurred_at,omitempty"`
+	VisitorID   string `json:"visitor_id,omitempty"`
+	QuoteID     string `json:"quote_id,omitempty"`
+	ConfigID    string `json:"config_id,omitempty"`
+	ProductID   string `json:"product_id,omitempty"`
+	ProductName string `json:"product_name,omitempty"`
+	Step        string `json:"step,omitempty"`
+	Page        string `json:"page,omitempty"`
+	MenuItem    string `json:"menu_item,omitempty"`
+	// Payload is arbitrary JSON detail (kept small — the batch is size-limited).
+	Payload any `json:"payload,omitempty"`
+}
+
+// SiteEventsTrackRequest is the batched envelope for SiteEvents.Track.
+type SiteEventsTrackRequest struct {
+	// SessionID identifies one visit (rotate per browser session).
+	SessionID string `json:"session_id"`
+	// VisitorID is the permanent visitor identity (localStorage UUID).
+	// Strongly recommended — events without it cannot build a visitor profile.
+	VisitorID string `json:"visitor_id,omitempty"`
+	// SiteHost is the property emitting events, e.g. "lelandssheds.com".
+	SiteHost string `json:"site_host,omitempty"`
+	// Timezone is the browser's IANA timezone.
+	Timezone string `json:"timezone,omitempty"`
+	// Language is navigator.language.
+	Language      string           `json:"language,omitempty"`
+	CorrelationID string           `json:"correlation_id,omitempty"`
+	Events        []SiteEventInput `json:"events"`
+}
+
+// SiteEventsTrackResponse reports how many events were accepted.
+type SiteEventsTrackResponse struct {
+	Success bool `json:"success"`
+	// Accepted is the number of events accepted into the pipeline.
+	Accepted int `json:"accepted"`
+}
+
+// SiteEventItem is one tracked event from GET /partner/v1/site-events.
+type SiteEventItem struct {
+	EventID    string `json:"eventId"`
+	EventType  string `json:"eventType"`
+	OccurredAt string `json:"occurredAt"`
+	SessionID  string `json:"sessionId"`
+	VisitorID  string `json:"visitorId,omitempty"`
+	// Source is "marketing" or "configurator".
+	Source      string `json:"source,omitempty"`
+	SiteHost    string `json:"siteHost,omitempty"`
+	Step        string `json:"step,omitempty"`
+	Page        string `json:"page,omitempty"`
+	MenuItem    string `json:"menuItem,omitempty"`
+	ProductID   string `json:"productId,omitempty"`
+	ProductName string `json:"productName,omitempty"`
+	QuoteID     string `json:"quoteId,omitempty"`
+	ConfigID    string `json:"configId,omitempty"`
+	GeoCountry  string `json:"geoCountry,omitempty"`
+	GeoRegion   string `json:"geoRegion,omitempty"`
+	GeoCity     string `json:"geoCity,omitempty"`
+	Payload     any    `json:"payload,omitempty"`
+}
+
+// SiteEventListParams are query params for GET /partner/v1/site-events.
+type SiteEventListParams struct {
+	// Cursor is the opaque cursor from a previous response.
+	Cursor string `json:"cursor,omitempty"`
+	// Limit is the max events per page (max 200).
+	Limit int `json:"limit,omitempty"`
+	// SessionID restricts to one session.
+	SessionID string `json:"sessionId,omitempty"`
+	// Types filters to these event types (joined with commas for you).
+	Types []string `json:"-"`
+	// From is an RFC3339 lower bound on occurredAt.
+	From string `json:"from,omitempty"`
+	// To is an RFC3339 upper bound on occurredAt.
+	To string `json:"to,omitempty"`
+}
+
+// SiteEventListResponse is the cursor envelope for GET /partner/v1/site-events.
+type SiteEventListResponse struct {
+	Data       []SiteEventItem `json:"data"`
+	NextCursor string          `json:"nextCursor,omitempty"`
+	HasMore    bool            `json:"hasMore"`
+}
+
 // EventRedeliverResponse is the body from POST /partner/v1/events/{id}/redeliver.
 type EventRedeliverResponse struct {
 	EventID string `json:"eventId"`

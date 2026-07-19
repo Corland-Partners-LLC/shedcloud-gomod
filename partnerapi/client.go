@@ -30,6 +30,7 @@ type Client struct {
 	Payments             *PaymentsService
 	Documents            *DocumentsService
 	Events               *EventsService
+	SiteEvents           *SiteEventsService
 	ConfiguratorSessions *ConfiguratorSessionsService
 
 	// BaseURL is the resolved API host used for all requests.
@@ -116,6 +117,7 @@ func New(opts Options) (*Client, error) {
 	c.Payments = &PaymentsService{c: c}
 	c.Documents = &DocumentsService{c: c}
 	c.Events = &EventsService{c: c}
+	c.SiteEvents = &SiteEventsService{c: c}
 	c.ConfiguratorSessions = &ConfiguratorSessionsService{c: c}
 	return c, nil
 }

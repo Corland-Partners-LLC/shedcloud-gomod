@@ -25,6 +25,8 @@ const (
 	ScopePaymentsWrite             = "partner-api.payments.write"
 	ScopeDocumentsRead             = "partner-api.documents.read"
 	ScopeEventsRead                = "partner-api.events.read"
+	ScopeSiteEventsRead            = "partner-api.site-events.read"
+	ScopeSiteEventsWrite           = "partner-api.site-events.write"
 	ScopeConfiguratorSessionsWrite = "partner-api.configurator-sessions.write"
 	ScopeDomainsRead               = "partner-api.domains.read"
 	ScopeAgreementsRead            = "partner-api.agreements.read"
@@ -55,6 +57,8 @@ var AllScopes = []string{
 	ScopePaymentsWrite,
 	ScopeDocumentsRead,
 	ScopeEventsRead,
+	ScopeSiteEventsRead,
+	ScopeSiteEventsWrite,
 	ScopeConfiguratorSessionsWrite,
 	ScopeDomainsRead,
 	ScopeAgreementsRead,

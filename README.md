@@ -102,6 +102,7 @@ Each resource maps to a section of the [hosted reference](https://go.shedcloud.c
 | `client.Payments` | `GET /partner/v1/payments[/{id}]` (read-only) | [#payments](https://go.shedcloud.com/partner/reference#payments) |
 | `client.Documents` | `GET /partner/v1/documents`, `GET .../{id}/download` (short-lived presigned URL) | [#documents](https://go.shedcloud.com/partner/reference#documents) |
 | `client.Events` | `GET /partner/v1/events` cursor feed, `Each(...)` iterator, `Redeliver(id)`, `Deliveries(...)` webhook delivery log | [#events](https://go.shedcloud.com/partner/reference#events) |
+| `client.SiteEvents` | `POST /partner/v1/site-events` batch ingest (visitor behavioral tracking, snake_case body), `List(...)` / `Each(...)` read-back | [#site-events](https://go.shedcloud.com/partner/reference#site-events) |
 | `client.ConfiguratorSessions` | `POST /partner/v1/configurator-sessions` (single-use 3D configurator launch URLs) | [#configurator-sessions](https://go.shedcloud.com/partner/reference#configurator-sessions) |
 
 ### Examples
