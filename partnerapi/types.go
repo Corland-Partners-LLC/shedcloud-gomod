@@ -96,6 +96,8 @@ type PartnerPricing struct {
 	// PaymentType is "rto" or "cash".
 	PaymentType    string  `json:"paymentType,omitempty"`
 	ChangeOrderFee float64 `json:"changeOrderFee,omitempty"`
+	Discount       float64 `json:"discount,omitempty"`
+	DiscountReason string  `json:"discountReason,omitempty"`
 }
 
 // LotStockAttributes is the exterior configuration of a lot-stock unit — the
@@ -119,6 +121,8 @@ type LotStockItem struct {
 	PurchaseType string   `json:"purchaseType,omitempty"`
 	BasePrice    float64  `json:"basePrice,omitempty"`
 	Price        float64  `json:"price,omitempty"`
+	Discount     float64  `json:"discount,omitempty"`
+	DiscountReason string `json:"discountReason,omitempty"`
 	LocationID   string   `json:"locationId,omitempty"`
 	LocationName string   `json:"locationName,omitempty"`
 	LocationSlug string   `json:"locationSlug,omitempty"`
