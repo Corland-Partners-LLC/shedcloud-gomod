@@ -1342,8 +1342,51 @@ type SiteEventInput struct {
 	Step        string `json:"step,omitempty"`
 	Page        string `json:"page,omitempty"`
 	MenuItem    string `json:"menu_item,omitempty"`
+	// Customer enriches identity events (customer.profile,
+	// identity.resolved) so the lifetime visitor profile gains a
+	// name/email/phone instead of staying anonymous.
+	Customer *SiteEventCustomer `json:"customer,omitempty"`
+	// Delivery enriches delivery.address events.
+	Delivery *SiteEventDelivery `json:"delivery,omitempty"`
+	// Payment enriches payment.select events and builds the visitor's
+	// payment-tendency profile.
+	Payment *SiteEventPayment `json:"payment,omitempty"`
 	// Payload is arbitrary JSON detail (kept small — the batch is size-limited).
 	Payload any `json:"payload,omitempty"`
+}
+
+// SiteEventCustomer is the contact snapshot for identity events
+// (customer.profile / identity.resolved / lead.created).
+type SiteEventCustomer struct {
+	FirstName string `json:"first_name,omitempty"`
+	LastName  string `json:"last_name,omitempty"`
+	Email     string `json:"email,omitempty"`
+	Phone     string `json:"phone,omitempty"`
+	Zip       string `json:"zip,omitempty"`
+}
+
+// SiteEventDelivery is the address snapshot for delivery.address events.
+type SiteEventDelivery struct {
+	Line1   string  `json:"line1,omitempty"`
+	Line2   string  `json:"line2,omitempty"`
+	City    string  `json:"city,omitempty"`
+	State   string  `json:"state,omitempty"`
+	Zip     string  `json:"zip,omitempty"`
+	Country string  `json:"country,omitempty"`
+	Lat     float64 `json:"lat,omitempty"`
+	Lng     float64 `json:"lng,omitempty"`
+}
+
+// SiteEventPayment is the payment snapshot for payment.select events.
+// PaymentType is "RENT_TO_OWN" or "CASH".
+type SiteEventPayment struct {
+	PaymentType    string  `json:"payment_type,omitempty"`
+	MonthlyTerm    float64 `json:"monthly_term,omitempty"`
+	MonthlyPayment float64 `json:"monthly_payment,omitempty"`
+	TotalDueToday  float64 `json:"total_due_today,omitempty"`
+	CashTotal      float64 `json:"cash_total,omitempty"`
+	Subtotal       float64 `json:"subtotal,omitempty"`
+	Trigger        string  `json:"trigger,omitempty"`
 }
 
 // SiteEventsTrackRequest is the batched envelope for SiteEvents.Track.
@@ -1361,6 +1404,14 @@ type SiteEventsTrackRequest struct {
 	Language      string           `json:"language,omitempty"`
 	CorrelationID string           `json:"correlation_id,omitempty"`
 	Events        []SiteEventInput `json:"events"`
+	// ClientIP is the end shopper's IP as seen by your backend proxy.
+	// Strongly recommended: without it every event is stamped with your
+	// server's IP, visitor geo is meaningless, and all traffic shares one
+	// per-IP rate bucket upstream.
+	ClientIP string `json:"client_ip,omitempty"`
+	// ClientUserAgent is the end shopper's browser User-Agent, forwarded so
+	// events don't carry this SDK's own UA.
+	ClientUserAgent string `json:"client_user_agent,omitempty"`
 }
 
 // SiteEventsTrackResponse reports how many events were accepted.
