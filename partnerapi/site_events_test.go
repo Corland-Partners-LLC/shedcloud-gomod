@@ -27,6 +27,14 @@ func TestSiteEventsTrack(t *testing.T) {
 		if got["client_ip"] != "203.0.113.9" || got["client_user_agent"] != "Mozilla/5.0 Safari/604.1" {
 			t.Errorf("client context = %s", body)
 		}
+		// First-touch attribution rides the envelope too.
+		if got["referrer"] != "https://www.google.com/" {
+			t.Errorf("referrer = %s", body)
+		}
+		utm, _ := got["utm"].(map[string]any)
+		if utm["source"] != "google" || utm["medium"] != "cpc" {
+			t.Errorf("utm = %s", body)
+		}
 		events, _ := got["events"].([]any)
 		if len(events) != 3 {
 			t.Fatalf("events = %v", events)
@@ -63,6 +71,8 @@ func TestSiteEventsTrack(t *testing.T) {
 		SiteHost:        "lelandssheds.com",
 		ClientIP:        "203.0.113.9",
 		ClientUserAgent: "Mozilla/5.0 Safari/604.1",
+		Referrer:        "https://www.google.com/",
+		UTM:             map[string]string{"source": "google", "medium": "cpc"},
 		Events: []partnerapi.SiteEventInput{
 			{EventType: "page.view", Page: "/sheds/lofted-barn"},
 			{EventType: "cta.click", Payload: map[string]string{"cta": "design-your-own"}},

@@ -1412,6 +1412,14 @@ type SiteEventsTrackRequest struct {
 	// ClientUserAgent is the end shopper's browser User-Agent, forwarded so
 	// events don't carry this SDK's own UA.
 	ClientUserAgent string `json:"client_user_agent,omitempty"`
+	// Referrer is the visit's external document.referrer (first touch
+	// preferred — capture it on the first page view and persist per
+	// session). Powers channel attribution in the flywheel reports.
+	Referrer string `json:"referrer,omitempty"`
+	// UTM carries utm_* query params captured client-side. Keys are
+	// accepted with or without the "utm_" prefix; the API normalizes to
+	// source/medium/campaign/term/content and drops unknown keys.
+	UTM map[string]string `json:"utm,omitempty"`
 }
 
 // SiteEventsTrackResponse reports how many events were accepted.
