@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0 — 2026-07-22
+
+- **Site events** — identity snapshots on `SiteEventInput`: `Customer`
+  (`SiteEventCustomer`: first/last name, email, phone, zip), `Delivery`
+  (`SiteEventDelivery`: address + lat/lng), and `Payment`
+  (`SiteEventPayment`: payment_type `RENT_TO_OWN`/`CASH`, terms, totals).
+  Attach to `customer.profile` / `identity.resolved` / `delivery.address` /
+  `payment.select` events so visitor profiles stop showing as anonymous.
+- **Site events** — `SiteEventsTrackRequest.ClientIP` / `ClientUserAgent`:
+  backend proxies forward the end shopper's IP and User-Agent so events
+  aren't stamped with the server's own context (geo accuracy + per-IP rate
+  fairness upstream).
+- Parity with `@shedcloud/partner-api` 0.6.0, `shedcloud-partner-api`
+  (PyPI) 0.6.0, and the `shedcloud-api-go` partner ingest change.
+
 ## 0.2.0 — 2026-07-19
 
 - **Site events** — `client.SiteEvents.Track()` and `List()` / `Each()` for
