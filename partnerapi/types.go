@@ -114,19 +114,19 @@ type LotStockAttributes struct {
 
 // LotStockItem is one on-lot inventory row.
 type LotStockItem struct {
-	ID           string   `json:"id"`
-	WorkOrderID  string   `json:"workOrderId,omitempty"`
-	SerialNumber string   `json:"serialNumber,omitempty"`
-	Title        string   `json:"title,omitempty"`
-	PurchaseType string   `json:"purchaseType,omitempty"`
-	BasePrice    float64  `json:"basePrice,omitempty"`
-	Price        float64  `json:"price,omitempty"`
-	Discount     float64  `json:"discount,omitempty"`
-	DiscountReason string `json:"discountReason,omitempty"`
-	LocationID   string   `json:"locationId,omitempty"`
-	LocationName string   `json:"locationName,omitempty"`
-	LocationSlug string   `json:"locationSlug,omitempty"`
-	Images       []string `json:"images,omitempty"`
+	ID             string   `json:"id"`
+	WorkOrderID    string   `json:"workOrderId,omitempty"`
+	SerialNumber   string   `json:"serialNumber,omitempty"`
+	Title          string   `json:"title,omitempty"`
+	PurchaseType   string   `json:"purchaseType,omitempty"`
+	BasePrice      float64  `json:"basePrice,omitempty"`
+	Price          float64  `json:"price,omitempty"`
+	Discount       float64  `json:"discount,omitempty"`
+	DiscountReason string   `json:"discountReason,omitempty"`
+	LocationID     string   `json:"locationId,omitempty"`
+	LocationName   string   `json:"locationName,omitempty"`
+	LocationSlug   string   `json:"locationSlug,omitempty"`
+	Images         []string `json:"images,omitempty"`
 	// HeroImages are public CDN URLs for uploaded Hero_Images / Product_Images
 	// on the work order. Empty when none are registered.
 	HeroImages []string `json:"heroImages,omitempty"`
@@ -214,13 +214,13 @@ type QuoteItem struct {
 	ConvertedOrderNumber int         `json:"convertedOrderNumber,omitempty"`
 	// ValidUntil is the quote expiration timestamp (RFC 3339). When it passes
 	// while the quote is still Open/Active, a quote.expired event is emitted.
-	ValidUntil   string             `json:"validUntil,omitempty"`
-	ExternalRefs ExternalReferences `json:"externalReferences,omitempty"`
-	SalesSource  string             `json:"salesSource,omitempty"`
-	SourceMetadata map[string]any   `json:"sourceMetadata,omitempty"`
-	Version      int64              `json:"version,omitempty"`
-	CreatedAt    string             `json:"createdAt,omitempty"`
-	UpdatedAt    string             `json:"updatedAt,omitempty"`
+	ValidUntil     string             `json:"validUntil,omitempty"`
+	ExternalRefs   ExternalReferences `json:"externalReferences,omitempty"`
+	SalesSource    string             `json:"salesSource,omitempty"`
+	SourceMetadata map[string]any     `json:"sourceMetadata,omitempty"`
+	Version        int64              `json:"version,omitempty"`
+	CreatedAt      string             `json:"createdAt,omitempty"`
+	UpdatedAt      string             `json:"updatedAt,omitempty"`
 }
 
 // OrderItem is one sales order.
@@ -244,13 +244,13 @@ type OrderItem struct {
 	// ExpectedDeliveryDate is the expected delivery date (RFC 3339).
 	ExpectedDeliveryDate string `json:"expectedDeliveryDate,omitempty"`
 	// DeliveredAt is the delivery completion timestamp (RFC 3339).
-	DeliveredAt  string             `json:"deliveredAt,omitempty"`
-	ExternalRefs ExternalReferences `json:"externalReferences,omitempty"`
-	SalesSource  string             `json:"salesSource,omitempty"`
-	SourceMetadata map[string]any   `json:"sourceMetadata,omitempty"`
-	Version      int64              `json:"version,omitempty"`
-	CreatedAt    string             `json:"createdAt,omitempty"`
-	UpdatedAt    string             `json:"updatedAt,omitempty"`
+	DeliveredAt    string             `json:"deliveredAt,omitempty"`
+	ExternalRefs   ExternalReferences `json:"externalReferences,omitempty"`
+	SalesSource    string             `json:"salesSource,omitempty"`
+	SourceMetadata map[string]any     `json:"sourceMetadata,omitempty"`
+	Version        int64              `json:"version,omitempty"`
+	CreatedAt      string             `json:"createdAt,omitempty"`
+	UpdatedAt      string             `json:"updatedAt,omitempty"`
 }
 
 // WorkOrderItem is one work order.
@@ -451,6 +451,135 @@ type LocationListParams struct {
 	Region string `json:"region,omitempty"`
 }
 
+// LocationBudgetListParams are query params for GET /partner/v1/location-budgets.
+type LocationBudgetListParams struct {
+	PaginationParams
+	Year       int    `json:"year,omitempty"`
+	LocationID string `json:"locationId,omitempty"`
+}
+
+// LocationBudgetUpsertRequest is the body for POST and PUT /partner/v1/location-budgets.
+type LocationBudgetUpsertRequest struct {
+	LocationID string `json:"locationId"`
+	Year       int    `json:"year"`
+
+	AnnualBudget float64 `json:"annualBudget,omitempty"`
+	LocationPct  float64 `json:"locationPct,omitempty"`
+
+	January   float64 `json:"january,omitempty"`
+	February  float64 `json:"february,omitempty"`
+	March     float64 `json:"march,omitempty"`
+	April     float64 `json:"april,omitempty"`
+	May       float64 `json:"may,omitempty"`
+	June      float64 `json:"june,omitempty"`
+	July      float64 `json:"july,omitempty"`
+	August    float64 `json:"august,omitempty"`
+	September float64 `json:"september,omitempty"`
+	October   float64 `json:"october,omitempty"`
+	November  float64 `json:"november,omitempty"`
+	December  float64 `json:"december,omitempty"`
+
+	JanuaryPct   float64 `json:"januaryPct,omitempty"`
+	FebruaryPct  float64 `json:"februaryPct,omitempty"`
+	MarchPct     float64 `json:"marchPct,omitempty"`
+	AprilPct     float64 `json:"aprilPct,omitempty"`
+	MayPct       float64 `json:"mayPct,omitempty"`
+	JunePct      float64 `json:"junePct,omitempty"`
+	JulyPct      float64 `json:"julyPct,omitempty"`
+	AugustPct    float64 `json:"augustPct,omitempty"`
+	SeptemberPct float64 `json:"septemberPct,omitempty"`
+	OctoberPct   float64 `json:"octoberPct,omitempty"`
+	NovemberPct  float64 `json:"novemberPct,omitempty"`
+	DecemberPct  float64 `json:"decemberPct,omitempty"`
+
+	BonusThreshold1 float64 `json:"bonusThreshold1,omitempty"`
+	BonusThreshold2 float64 `json:"bonusThreshold2,omitempty"`
+	InventoryCap    float64 `json:"inventoryCap,omitempty"`
+	CloseRateTarget float64 `json:"closeRateTarget,omitempty"`
+
+	JanuaryLeadTarget   int `json:"januaryLeadTarget,omitempty"`
+	FebruaryLeadTarget  int `json:"februaryLeadTarget,omitempty"`
+	MarchLeadTarget     int `json:"marchLeadTarget,omitempty"`
+	AprilLeadTarget     int `json:"aprilLeadTarget,omitempty"`
+	MayLeadTarget       int `json:"mayLeadTarget,omitempty"`
+	JuneLeadTarget      int `json:"juneLeadTarget,omitempty"`
+	JulyLeadTarget      int `json:"julyLeadTarget,omitempty"`
+	AugustLeadTarget    int `json:"augustLeadTarget,omitempty"`
+	SeptemberLeadTarget int `json:"septemberLeadTarget,omitempty"`
+	OctoberLeadTarget   int `json:"octoberLeadTarget,omitempty"`
+	NovemberLeadTarget  int `json:"novemberLeadTarget,omitempty"`
+	DecemberLeadTarget  int `json:"decemberLeadTarget,omitempty"`
+}
+
+// LocationBudgetItem is a per-location sales budget record.
+type LocationBudgetItem struct {
+	ID           string  `json:"id"`
+	LocationID   string  `json:"locationId"`
+	Year         int     `json:"year"`
+	AnnualBudget float64 `json:"annualBudget,omitempty"`
+	LocationPct  float64 `json:"locationPct,omitempty"`
+
+	January   float64 `json:"january,omitempty"`
+	February  float64 `json:"february,omitempty"`
+	March     float64 `json:"march,omitempty"`
+	April     float64 `json:"april,omitempty"`
+	May       float64 `json:"may,omitempty"`
+	June      float64 `json:"june,omitempty"`
+	July      float64 `json:"july,omitempty"`
+	August    float64 `json:"august,omitempty"`
+	September float64 `json:"september,omitempty"`
+	October   float64 `json:"october,omitempty"`
+	November  float64 `json:"november,omitempty"`
+	December  float64 `json:"december,omitempty"`
+
+	JanuaryPct   float64 `json:"januaryPct,omitempty"`
+	FebruaryPct  float64 `json:"februaryPct,omitempty"`
+	MarchPct     float64 `json:"marchPct,omitempty"`
+	AprilPct     float64 `json:"aprilPct,omitempty"`
+	MayPct       float64 `json:"mayPct,omitempty"`
+	JunePct      float64 `json:"junePct,omitempty"`
+	JulyPct      float64 `json:"julyPct,omitempty"`
+	AugustPct    float64 `json:"augustPct,omitempty"`
+	SeptemberPct float64 `json:"septemberPct,omitempty"`
+	OctoberPct   float64 `json:"octoberPct,omitempty"`
+	NovemberPct  float64 `json:"novemberPct,omitempty"`
+	DecemberPct  float64 `json:"decemberPct,omitempty"`
+
+	JanuaryWeek   float64 `json:"januaryWeek,omitempty"`
+	FebruaryWeek  float64 `json:"februaryWeek,omitempty"`
+	MarchWeek     float64 `json:"marchWeek,omitempty"`
+	AprilWeek     float64 `json:"aprilWeek,omitempty"`
+	MayWeek       float64 `json:"mayWeek,omitempty"`
+	JuneWeek      float64 `json:"juneWeek,omitempty"`
+	JulyWeek      float64 `json:"julyWeek,omitempty"`
+	AugustWeek    float64 `json:"augustWeek,omitempty"`
+	SeptemberWeek float64 `json:"septemberWeek,omitempty"`
+	OctoberWeek   float64 `json:"octoberWeek,omitempty"`
+	NovemberWeek  float64 `json:"novemberWeek,omitempty"`
+	DecemberWeek  float64 `json:"decemberWeek,omitempty"`
+
+	BonusThreshold1 float64 `json:"bonusThreshold1,omitempty"`
+	BonusThreshold2 float64 `json:"bonusThreshold2,omitempty"`
+	InventoryCap    float64 `json:"inventoryCap,omitempty"`
+	CloseRateTarget float64 `json:"closeRateTarget,omitempty"`
+
+	JanuaryLeadTarget   int `json:"januaryLeadTarget,omitempty"`
+	FebruaryLeadTarget  int `json:"februaryLeadTarget,omitempty"`
+	MarchLeadTarget     int `json:"marchLeadTarget,omitempty"`
+	AprilLeadTarget     int `json:"aprilLeadTarget,omitempty"`
+	MayLeadTarget       int `json:"mayLeadTarget,omitempty"`
+	JuneLeadTarget      int `json:"juneLeadTarget,omitempty"`
+	JulyLeadTarget      int `json:"julyLeadTarget,omitempty"`
+	AugustLeadTarget    int `json:"augustLeadTarget,omitempty"`
+	SeptemberLeadTarget int `json:"septemberLeadTarget,omitempty"`
+	OctoberLeadTarget   int `json:"octoberLeadTarget,omitempty"`
+	NovemberLeadTarget  int `json:"novemberLeadTarget,omitempty"`
+	DecemberLeadTarget  int `json:"decemberLeadTarget,omitempty"`
+
+	CreatedAt string `json:"createdAt,omitempty"`
+	UpdatedAt string `json:"updatedAt,omitempty"`
+}
+
 // CustomerListParams are query params for GET /partner/v1/customers.
 type CustomerListParams struct {
 	PaginationParams
@@ -537,12 +666,49 @@ type ProductSizeItem struct {
 	Active    bool    `json:"active"`
 }
 
+// DimensionMap is the `dimensions` payload on order and work-order creation,
+// keyed by dimension-variable key (`width_ft`, `length_ft`, …). Any key the
+// company has defined is accepted, so the map is deliberately open rather
+// than a fixed struct — resolve the keys with Client.BOM.DimensionVariables.
+//
+// Values are `any` because the API accepts a bare number (14) or the number
+// carrying the variable's own declared unit as a string ("14 ft", "14'",
+// "448 sqft"). A unit the variable is not declared in is refused rather than
+// converted, so pass the string through untouched.
+type DimensionMap map[string]any
+
+// DimensionVariableItem is one dimension variable from
+// GET /partner/v1/bom/dimension-variables.
+type DimensionVariableItem struct {
+	// Key is what goes in a DimensionMap — the identifier a BOM formula
+	// also uses.
+	Key   string `json:"key"`
+	Label string `json:"label,omitempty"`
+	// Unit is "ft", "sqft", or "ea".
+	Unit string `json:"unit,omitempty"`
+	// Category is "dimension", "area", or "count". A zero is meaningful for
+	// a count and refused for the other two.
+	Category string `json:"category,omitempty"`
+	Notes    string `json:"notes,omitempty"`
+	// IsSystem marks the ten built-in variables every company shares. False
+	// means this company defined it, so an integration serving several
+	// companies must not assume it exists elsewhere.
+	IsSystem bool `json:"isSystem"`
+}
+
+// DimensionVariablesResponse is the envelope for
+// GET /partner/v1/bom/dimension-variables. The endpoint returns the whole
+// vocabulary — there is no pagination.
+type DimensionVariablesResponse struct {
+	Data []DimensionVariableItem `json:"data"`
+}
+
 // LeadPatchRequest is the body for PATCH /partner/v1/leads/{id}.
 type LeadPatchRequest struct {
-	SalesLocation    string `json:"salesLocation,omitempty"`
-	SalespersonName  string `json:"salespersonName,omitempty"`
-	SalespersonEmail string `json:"salespersonEmail,omitempty"`
-	SalesSource      *string `json:"salesSource,omitempty"`
+	SalesLocation    string         `json:"salesLocation,omitempty"`
+	SalespersonName  string         `json:"salespersonName,omitempty"`
+	SalespersonEmail string         `json:"salespersonEmail,omitempty"`
+	SalesSource      *string        `json:"salesSource,omitempty"`
 	SourceMetadata   map[string]any `json:"sourceMetadata,omitempty"`
 	// ExternalRefs keys are merged into the record's map; nil values delete keys.
 	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
@@ -630,8 +796,8 @@ type QuotePatchRequest struct {
 	DeliveryZipCode  string `json:"deliveryZipCode,omitempty"`
 	// ValidUntil sets the quote's expiration ("YYYY-MM-DD" or RFC 3339;
 	// date-only values cover the whole day).
-	ValidUntil *string `json:"validUntil,omitempty"`
-	SalesSource *string `json:"salesSource,omitempty"`
+	ValidUntil     *string        `json:"validUntil,omitempty"`
+	SalesSource    *string        `json:"salesSource,omitempty"`
 	SourceMetadata map[string]any `json:"sourceMetadata,omitempty"`
 	// ExternalRefs keys are merged into the record's map; nil values delete keys.
 	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
@@ -676,6 +842,12 @@ type OrderCreateRequest struct {
 
 	ProductID string `json:"productId"`
 	SizeID    string `json:"sizeId,omitempty"`
+	// Dimensions is the parametric alternative to SizeID: the measurements
+	// to build at, for a product that has no sizes to name. Keyed by
+	// dimension-variable key — resolve them with
+	// Client.BOM.DimensionVariables. Mutually exclusive with SizeID:
+	// sending both is a 400.
+	Dimensions DimensionMap `json:"dimensions,omitempty"`
 
 	BasePrice *float64 `json:"basePrice,omitempty"`
 	Subtotal  *float64 `json:"subtotal,omitempty"`
@@ -745,6 +917,17 @@ type WorkOrderCreateRequest struct {
 	Title        string `json:"title,omitempty"`
 	// SizeID optionally attaches a product size to the new work order.
 	SizeID string `json:"sizeId,omitempty"`
+	// ProductID attaches a parametric product without naming a size, for a
+	// product that has none. Mutually exclusive with SizeID — sending both
+	// is a 400.
+	ProductID string `json:"productId,omitempty"`
+	// Dimensions is what to build the parametric product at, keyed by
+	// dimension-variable key. Requires ProductID; sending it alone is a 400.
+	//
+	// The server records these on the work-order line, not on the product:
+	// they describe this one building and must not alter the product every
+	// other work order shares.
+	Dimensions DimensionMap `json:"dimensions,omitempty"`
 	// PromisedDate is RFC 3339 or YYYY-MM-DD.
 	PromisedDate string             `json:"promisedDate,omitempty"`
 	ExternalRefs ExternalReferences `json:"externalReferences,omitempty"`
@@ -772,17 +955,17 @@ type LineItemCreateResponse struct {
 
 // OrderPatchRequest is the body for PATCH /partner/v1/orders/{id}.
 type OrderPatchRequest struct {
-	CustomerName     string `json:"customerName,omitempty"`
-	CustomerEmail    string `json:"customerEmail,omitempty"`
-	CustomerPhone    string `json:"customerPhone,omitempty"`
-	SalespersonName  string `json:"salespersonName,omitempty"`
-	SalespersonEmail string `json:"salespersonEmail,omitempty"`
-	SalesLocation    string `json:"salesLocation,omitempty"`
-	DeliveryAddress  string `json:"deliveryAddress,omitempty"`
-	DeliveryCity     string `json:"deliveryCity,omitempty"`
-	DeliveryState    string `json:"deliveryState,omitempty"`
-	DeliveryZipCode  string `json:"deliveryZipCode,omitempty"`
-	SalesSource      *string `json:"salesSource,omitempty"`
+	CustomerName     string         `json:"customerName,omitempty"`
+	CustomerEmail    string         `json:"customerEmail,omitempty"`
+	CustomerPhone    string         `json:"customerPhone,omitempty"`
+	SalespersonName  string         `json:"salespersonName,omitempty"`
+	SalespersonEmail string         `json:"salespersonEmail,omitempty"`
+	SalesLocation    string         `json:"salesLocation,omitempty"`
+	DeliveryAddress  string         `json:"deliveryAddress,omitempty"`
+	DeliveryCity     string         `json:"deliveryCity,omitempty"`
+	DeliveryState    string         `json:"deliveryState,omitempty"`
+	DeliveryZipCode  string         `json:"deliveryZipCode,omitempty"`
+	SalesSource      *string        `json:"salesSource,omitempty"`
 	SourceMetadata   map[string]any `json:"sourceMetadata,omitempty"`
 	// ExternalRefs keys are merged into the record's map; nil values delete keys.
 	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`

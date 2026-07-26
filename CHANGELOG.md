@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 — 2026-07-26
+
+- **Location sales budgets** — `client.LocationBudgets.List/Get/Create/Update` for
+  `GET/POST/PUT /partner/v1/location-budgets` (scopes
+  `ScopeLocationBudgetsRead` / `ScopeLocationBudgetsWrite`). New types:
+  `LocationBudgetItem`, `LocationBudgetUpsertRequest`, `LocationBudgetListParams`.
+- Parity with `@shedcloud/partner-api` 0.7.0 and the `shedcloud-api-go` Partner
+  API changelog entry (2026-07-25).
+
 ## 0.3.0 — 2026-07-22
 
 - **Site events** — identity snapshots on `SiteEventInput`: `Customer`

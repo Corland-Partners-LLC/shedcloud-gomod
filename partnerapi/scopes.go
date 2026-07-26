@@ -14,6 +14,8 @@ const (
 	ScopeWorkOrdersWrite = "partner-api.work-orders.write"
 	ScopeLocationsRead   = "partner-api.locations.read"
 	ScopeLocationsWrite  = "partner-api.locations.write"
+	ScopeLocationBudgetsRead  = "partner-api.location-budgets.read"
+	ScopeLocationBudgetsWrite = "partner-api.location-budgets.write"
 	ScopeCustomersRead   = "partner-api.customers.read"
 	ScopeCustomersWrite  = "partner-api.customers.write"
 	ScopeProductsRead    = "partner-api.products.read"
@@ -47,6 +49,8 @@ var AllScopes = []string{
 	ScopeWorkOrdersWrite,
 	ScopeLocationsRead,
 	ScopeLocationsWrite,
+	ScopeLocationBudgetsRead,
+	ScopeLocationBudgetsWrite,
 	ScopeCustomersRead,
 	ScopeCustomersWrite,
 	ScopeProductsRead,
