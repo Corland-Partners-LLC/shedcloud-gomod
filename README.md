@@ -95,6 +95,7 @@ Each resource maps to a section of the [hosted reference](https://go.shedcloud.c
 | `client.Orders` | `GET/POST/PATCH /partner/v1/orders`, `POST .../status`, `GET .../status-history`, `GET/POST/DELETE .../line-items`, `GET .../contract`, `GET/POST .../payments`, `POST .../payment-links` — `Create(...)` makes a full order (customer, base product + size, upgrades, configurator); `CreatePayment(...)` records manual payments, `CreatePaymentLink(...)` returns a Stripe Checkout URL | [#orders](https://go.shedcloud.com/partner/reference#orders) |
 | `client.WorkOrders` | `GET/POST/PATCH /partner/v1/work-orders`, `POST .../status`, `GET .../status-history` — `Create(...)` makes a work order with friendly type enums + optional `SizeID` | [#work-orders](https://go.shedcloud.com/partner/reference#work-orders) |
 | `client.Locations` | `GET/POST/PATCH /partner/v1/locations` | [#locations](https://go.shedcloud.com/partner/reference#locations) |
+| `client.LocationBudgets` | `GET/POST/PUT /partner/v1/location-budgets` — per-location sales targets (annual/monthly dollar amounts, distribution percentages, lead targets); one budget per company, location, and calendar year | [#location-budgets](https://go.shedcloud.com/partner/reference#location-budgets) |
 | `client.Customers` | `GET/POST/PATCH /partner/v1/customers`, `POST .../{id}/merge` | [#customers](https://go.shedcloud.com/partner/reference#customers) |
 | `client.Products` | `GET/POST/PATCH /partner/v1/products`, `CreateSize(id, ...)` for `POST .../{id}/sizes` (finished catalog products with gallery `Images`) | [#products](https://go.shedcloud.com/partner/reference#products) |
 | `client.Domains` | `GET /partner/v1/domains`, `ForLocation(id)` for `GET /partner/v1/locations/{id}/domains` (white-label storefront domains, `defaultForStore` filter) | [#domains](https://go.shedcloud.com/partner/reference#domains) |
@@ -248,6 +249,21 @@ _, err = client.Products.CreateSize(ctx, product.ID, partnerapi.ProductSizeCreat
 	Width: 10, Length: 16, Price: 8200,
 })
 
+// Per-location sales budgets: one record per company, location, and year.
+budget, err := client.LocationBudgets.Create(ctx, partnerapi.LocationBudgetUpsertRequest{
+	LocationID:   "66c00443c2d8aa83c5757dcf",
+	Year:         2026,
+	AnnualBudget: 1200000,
+	January:      85000,
+	February:     90000,
+}, partnerapi.WithIdempotencyKey(uuid.NewString()))
+budgets, err := client.LocationBudgets.List(ctx, partnerapi.LocationBudgetListParams{Year: 2026})
+_, err = client.LocationBudgets.Update(ctx, budget.ID, partnerapi.LocationBudgetUpsertRequest{
+	LocationID: budget.LocationID,
+	Year:       budget.Year,
+	March:      100000,
+})
+
 // White-label storefront domains: find each location's primary storefront.
 defaultOnly := true
 domains, err := client.Domains.List(ctx, partnerapi.DomainListParams{
@@ -293,8 +309,10 @@ if apiErr, ok := err.(*partnerapi.Error); ok {
 ## Scopes
 
 ```go
-partnerapi.ScopeLotStockRead    // partner-api.lot-stock.read
-partnerapi.ScopeOrdersWrite     // partner-api.orders.write
+partnerapi.ScopeLotStockRead         // partner-api.lot-stock.read
+partnerapi.ScopeLocationBudgetsRead  // partner-api.location-budgets.read
+partnerapi.ScopeLocationBudgetsWrite // partner-api.location-budgets.write
+partnerapi.ScopeOrdersWrite          // partner-api.orders.write
 ```
 
 ## Development
