@@ -145,6 +145,14 @@ type LotStockItem struct {
 	// HeroImages are public CDN URLs for uploaded Hero_Images / Product_Images
 	// on the work order. Empty when none are registered.
 	HeroImages []string `json:"heroImages,omitempty"`
+	// FrontImages / BackImages / LeftImages / RightImages / ExteriorImages /
+	// InteriorImages are public CDN URLs for the matching typed file docs.
+	FrontImages    []string `json:"frontImages,omitempty"`
+	BackImages     []string `json:"backImages,omitempty"`
+	LeftImages     []string `json:"leftImages,omitempty"`
+	RightImages    []string `json:"rightImages,omitempty"`
+	ExteriorImages []string `json:"exteriorImages,omitempty"`
+	InteriorImages []string `json:"interiorImages,omitempty"`
 	// Attributes is nil when the unit has no configurator.
 	Attributes *LotStockAttributes `json:"attributes,omitempty"`
 	Sold       bool                `json:"sold"`
@@ -977,17 +985,17 @@ type LineItemCreateResponse struct {
 
 // OrderPatchRequest is the body for PATCH /partner/v1/orders/{id}.
 type OrderPatchRequest struct {
-	CustomerName     string         `json:"customerName,omitempty"`
-	CustomerEmail    string         `json:"customerEmail,omitempty"`
-	CustomerPhone    string         `json:"customerPhone,omitempty"`
-	SalespersonName  string         `json:"salespersonName,omitempty"`
-	SalespersonEmail string         `json:"salespersonEmail,omitempty"`
-	SalesLocation    string         `json:"salesLocation,omitempty"`
-	DeliveryAddress  string         `json:"deliveryAddress,omitempty"`
-	DeliveryCity     string         `json:"deliveryCity,omitempty"`
-	DeliveryState    string         `json:"deliveryState,omitempty"`
-	DeliveryZipCode  string         `json:"deliveryZipCode,omitempty"`
-	SalesSource      *string        `json:"salesSource,omitempty"`
+	CustomerName     string  `json:"customerName,omitempty"`
+	CustomerEmail    string  `json:"customerEmail,omitempty"`
+	CustomerPhone    string  `json:"customerPhone,omitempty"`
+	SalespersonName  string  `json:"salespersonName,omitempty"`
+	SalespersonEmail string  `json:"salespersonEmail,omitempty"`
+	SalesLocation    string  `json:"salesLocation,omitempty"`
+	DeliveryAddress  string  `json:"deliveryAddress,omitempty"`
+	DeliveryCity     string  `json:"deliveryCity,omitempty"`
+	DeliveryState    string  `json:"deliveryState,omitempty"`
+	DeliveryZipCode  string  `json:"deliveryZipCode,omitempty"`
+	SalesSource      *string `json:"salesSource,omitempty"`
 	// SaleDate is a calendar day (RFC 3339 or YYYY-MM-DD). Use a non-nil empty
 	// string pointer only when you intend to send ""; clearing requires a JSON
 	// null (pass via a custom marshal or raw request if needed).

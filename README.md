@@ -52,7 +52,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(stock.Total, stock.Data[0].Title)
+	unit := stock.Data[0]
+	fmt.Println(stock.Total, unit.Title)
+	// Typed public photo galleries (CDN URL slices; empty when none):
+	// unit.HeroImages, unit.FrontImages, unit.BackImages,
+	// unit.LeftImages, unit.RightImages, unit.ExteriorImages, unit.InteriorImages
 }
 ```
 

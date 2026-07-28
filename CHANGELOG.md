@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.1 — 2026-07-28
+
+- **Lot-stock typed photo galleries.** `LotStockItem` adds `FrontImages`,
+  `BackImages`, `LeftImages`, `RightImages`, `ExteriorImages`, and
+  `InteriorImages` (public CDN URL slices; empty/omitted when none).
+  Existing `Images` and `HeroImages` are unchanged.
+- Parity with the `shedcloud-api-go` Partner API changelog entry (2026-07-28).
+
 ## 0.8.0 — 2026-07-27
 
 - **Orders: sale date + sold pricing.** `OrderItem` adds `SaleDate` and
