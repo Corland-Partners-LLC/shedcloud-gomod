@@ -100,6 +100,21 @@ type PartnerPricing struct {
 	DiscountReason string  `json:"discountReason,omitempty"`
 }
 
+// PartnerSoldPricing is the frozen money snapshot taken when an order entered
+// the company Sold-by Status. All fields use omitempty so a PATCH can send a
+// partial object without zeroing unset amounts.
+type PartnerSoldPricing struct {
+	BasePrice         float64 `json:"basePrice,omitempty"`
+	UpgradesAmount    float64 `json:"upgradesAmount,omitempty"`
+	RemovedUpgrades   float64 `json:"removedUpgradesAmount,omitempty"`
+	MaterialSurcharge float64 `json:"materialSurcharge,omitempty"`
+	DeliveryFee       float64 `json:"deliveryFee,omitempty"`
+	Discount          float64 `json:"discount,omitempty"`
+	TaxAmount         float64 `json:"taxAmount,omitempty"`
+	Subtotal          float64 `json:"subtotal,omitempty"`
+	Total             float64 `json:"total,omitempty"`
+}
+
 // LotStockAttributes is the exterior configuration of a lot-stock unit — the
 // same values ShedCloud's work-order detail page shows. Custom colors surface
 // as "Custom Color - #HEX".
@@ -233,6 +248,8 @@ type OrderItem struct {
 	Salesperson     PartnerSalesperson `json:"salesperson"`
 	Location        PartnerLocation    `json:"location"`
 	Pricing         PartnerPricing     `json:"pricing"`
+	// SoldPricing is the frozen sold amounts; present after Sold-by Status stamp.
+	SoldPricing *PartnerSoldPricing `json:"soldPricing,omitempty"`
 	// RTO is non-nil when Pricing.PaymentType is "rto".
 	RTO *PartnerRTO `json:"rto,omitempty"`
 	// Deposits is the money collected/owed on the order.
@@ -244,7 +261,9 @@ type OrderItem struct {
 	// ExpectedDeliveryDate is the expected delivery date (RFC 3339).
 	ExpectedDeliveryDate string `json:"expectedDeliveryDate,omitempty"`
 	// DeliveredAt is the delivery completion timestamp (RFC 3339).
-	DeliveredAt    string             `json:"deliveredAt,omitempty"`
+	DeliveredAt string `json:"deliveredAt,omitempty"`
+	// SaleDate is the sale / sold calendar day (RFC 3339 or YYYY-MM-DD).
+	SaleDate       string             `json:"saleDate,omitempty"`
 	ExternalRefs   ExternalReferences `json:"externalReferences,omitempty"`
 	SalesSource    string             `json:"salesSource,omitempty"`
 	SourceMetadata map[string]any     `json:"sourceMetadata,omitempty"`
@@ -416,6 +435,9 @@ type OrderListParams struct {
 	SalesListParams
 	PaymentType  string `json:"paymentType,omitempty"` // rto | cash
 	SerialNumber string `json:"serialNumber,omitempty"`
+	// SaleDateFrom / SaleDateTo filter by sale / sold date (RFC 3339 or YYYY-MM-DD).
+	SaleDateFrom string `json:"saleDateFrom,omitempty"`
+	SaleDateTo   string `json:"saleDateTo,omitempty"`
 }
 
 // WorkOrderListParams are query params for GET /partner/v1/work-orders.
@@ -966,7 +988,15 @@ type OrderPatchRequest struct {
 	DeliveryState    string         `json:"deliveryState,omitempty"`
 	DeliveryZipCode  string         `json:"deliveryZipCode,omitempty"`
 	SalesSource      *string        `json:"salesSource,omitempty"`
-	SourceMetadata   map[string]any `json:"sourceMetadata,omitempty"`
+	// SaleDate is a calendar day (RFC 3339 or YYYY-MM-DD). Use a non-nil empty
+	// string pointer only when you intend to send ""; clearing requires a JSON
+	// null (pass via a custom marshal or raw request if needed).
+	SaleDate *string `json:"saleDate,omitempty"`
+	// SoldPricing patches the frozen sold_* snapshot (partial object). A non-nil
+	// empty pointer is not enough to clear — send JSON null on the wire to clear
+	// every sold amount.
+	SoldPricing    *PartnerSoldPricing `json:"soldPricing,omitempty"`
+	SourceMetadata map[string]any      `json:"sourceMetadata,omitempty"`
 	// ExternalRefs keys are merged into the record's map; nil values delete keys.
 	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
 }
