@@ -101,17 +101,18 @@ type PartnerPricing struct {
 }
 
 // PartnerSoldPricing is the frozen money snapshot taken when an order entered
-// the company Sold-by Status.
+// the company Sold-by Status. All fields use omitempty so a PATCH can send a
+// partial object without zeroing unset amounts.
 type PartnerSoldPricing struct {
-	BasePrice         float64 `json:"basePrice"`
-	UpgradesAmount    float64 `json:"upgradesAmount"`
+	BasePrice         float64 `json:"basePrice,omitempty"`
+	UpgradesAmount    float64 `json:"upgradesAmount,omitempty"`
 	RemovedUpgrades   float64 `json:"removedUpgradesAmount,omitempty"`
 	MaterialSurcharge float64 `json:"materialSurcharge,omitempty"`
-	DeliveryFee       float64 `json:"deliveryFee"`
+	DeliveryFee       float64 `json:"deliveryFee,omitempty"`
 	Discount          float64 `json:"discount,omitempty"`
-	TaxAmount         float64 `json:"taxAmount"`
-	Subtotal          float64 `json:"subtotal"`
-	Total             float64 `json:"total"`
+	TaxAmount         float64 `json:"taxAmount,omitempty"`
+	Subtotal          float64 `json:"subtotal,omitempty"`
+	Total             float64 `json:"total,omitempty"`
 }
 
 // LotStockAttributes is the exterior configuration of a lot-stock unit — the
@@ -261,7 +262,7 @@ type OrderItem struct {
 	ExpectedDeliveryDate string `json:"expectedDeliveryDate,omitempty"`
 	// DeliveredAt is the delivery completion timestamp (RFC 3339).
 	DeliveredAt string `json:"deliveredAt,omitempty"`
-	// SaleDate is the sale / sold calendar day (RFC 3339).
+	// SaleDate is the sale / sold calendar day (RFC 3339 or YYYY-MM-DD).
 	SaleDate       string             `json:"saleDate,omitempty"`
 	ExternalRefs   ExternalReferences `json:"externalReferences,omitempty"`
 	SalesSource    string             `json:"salesSource,omitempty"`
@@ -987,7 +988,15 @@ type OrderPatchRequest struct {
 	DeliveryState    string         `json:"deliveryState,omitempty"`
 	DeliveryZipCode  string         `json:"deliveryZipCode,omitempty"`
 	SalesSource      *string        `json:"salesSource,omitempty"`
-	SourceMetadata   map[string]any `json:"sourceMetadata,omitempty"`
+	// SaleDate is a calendar day (RFC 3339 or YYYY-MM-DD). Use a non-nil empty
+	// string pointer only when you intend to send ""; clearing requires a JSON
+	// null (pass via a custom marshal or raw request if needed).
+	SaleDate *string `json:"saleDate,omitempty"`
+	// SoldPricing patches the frozen sold_* snapshot (partial object). A non-nil
+	// empty pointer is not enough to clear — send JSON null on the wire to clear
+	// every sold amount.
+	SoldPricing    *PartnerSoldPricing `json:"soldPricing,omitempty"`
+	SourceMetadata map[string]any      `json:"sourceMetadata,omitempty"`
 	// ExternalRefs keys are merged into the record's map; nil values delete keys.
 	ExternalRefs ExternalReferencesPatch `json:"externalReferences,omitempty"`
 }

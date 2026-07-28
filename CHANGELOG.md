@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0 — 2026-07-27
+
+- **Orders: sale date + sold pricing.** `OrderItem` adds `SaleDate` and
+  `SoldPricing` (`PartnerSoldPricing`). List with `SaleDateFrom` /
+  `SaleDateTo`. `OrderPatchRequest` accepts `SaleDate` and `SoldPricing`.
+- Parity with `@shedcloud/partner-api` 0.8.0 and the `shedcloud-api-go`
+  Partner API changelog entry (2026-07-27).
+
 ## 0.7.0 — 2026-07-26
 
 - **Location sales budgets** — `client.LocationBudgets.List/Get/Create/Update` for
