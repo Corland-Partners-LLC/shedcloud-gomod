@@ -271,7 +271,11 @@ type OrderItem struct {
 	// DeliveredAt is the delivery completion timestamp (RFC 3339).
 	DeliveredAt string `json:"deliveredAt,omitempty"`
 	// SaleDate is the sale / sold calendar day (RFC 3339 or YYYY-MM-DD).
-	SaleDate       string             `json:"saleDate,omitempty"`
+	SaleDate string `json:"saleDate,omitempty"`
+	// Cancelled is sticky true when a previously sold order later moved to
+	// Cancelled or Deleted (same meaning as sales-ledger cancelled). Store
+	// reporting should exclude these from net sold totals.
+	Cancelled      bool               `json:"cancelled"`
 	ExternalRefs   ExternalReferences `json:"externalReferences,omitempty"`
 	SalesSource    string             `json:"salesSource,omitempty"`
 	SourceMetadata map[string]any     `json:"sourceMetadata,omitempty"`
