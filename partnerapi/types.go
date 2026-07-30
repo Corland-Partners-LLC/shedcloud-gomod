@@ -1478,6 +1478,53 @@ type PaymentListParams struct {
 	CreatedTo   string `json:"createdTo,omitempty"`
 }
 
+// SalesLedgerItem is one movement from GET /partner/v1/sales-ledger.
+// SaleDate is YYYY-MM-DD; LedgerDate is the status/event timestamp (RFC 3339).
+type SalesLedgerItem struct {
+	ID                         string  `json:"id"`
+	OrderID                    string  `json:"orderId,omitempty"`
+	OrderNumber                int64   `json:"orderNumber,omitempty"`
+	OrderNumberString          string  `json:"orderNumberString,omitempty"`
+	CustomerID                 string  `json:"customerId,omitempty"`
+	CustomerName               string  `json:"customerName,omitempty"`
+	CustomerPhone              string  `json:"customerPhone,omitempty"`
+	LocationID                 string  `json:"locationId,omitempty"`
+	LocationName               string  `json:"locationName,omitempty"`
+	SalesPersonName            string  `json:"salesPersonName,omitempty"`
+	SerialNumber               string  `json:"serialNumber,omitempty"`
+	SalesSource                string  `json:"salesSource,omitempty"`
+	SourceView                 string  `json:"sourceView,omitempty"`
+	SaleDate                   string  `json:"saleDate,omitempty"`
+	LedgerDate                 string  `json:"ledgerDate,omitempty"`
+	PreviousStatus             string  `json:"previousStatus,omitempty"`
+	NewStatus                  string  `json:"newStatus,omitempty"`
+	CurrentStatus              string  `json:"currentStatus,omitempty"`
+	MovementType               string  `json:"movementType,omitempty"`
+	Reason                     string  `json:"reason,omitempty"`
+	DeltaBasePrice             float64 `json:"deltaBasePrice"`
+	DeltaUpgradesAmount        float64 `json:"deltaUpgradesAmount"`
+	DeltaRemovedUpgradesAmount float64 `json:"deltaRemovedUpgradesAmount"`
+	DeltaAmount                float64 `json:"deltaAmount"`
+	NewBasePrice               float64 `json:"newBasePrice"`
+	NewUpgradesAmount          float64 `json:"newUpgradesAmount"`
+	NewRemovedUpgradesAmount   float64 `json:"newRemovedUpgradesAmount"`
+	NewOrderAmount             float64 `json:"newOrderAmount"`
+	CreatedAt                  string  `json:"createdAt,omitempty"`
+}
+
+// SalesLedgerListParams are query params for GET /partner/v1/sales-ledger.
+type SalesLedgerListParams struct {
+	PaginationParams
+	OrderID        string `json:"orderId,omitempty"`
+	LocationID     string `json:"locationId,omitempty"`
+	CurrentStatus  string `json:"currentStatus,omitempty"`
+	MovementType   string `json:"movementType,omitempty"`
+	SaleDateFrom   string `json:"saleDateFrom,omitempty"`
+	SaleDateTo     string `json:"saleDateTo,omitempty"`
+	LedgerDateFrom string `json:"ledgerDateFrom,omitempty"`
+	LedgerDateTo   string `json:"ledgerDateTo,omitempty"`
+}
+
 // DocumentItem is one file metadata row from GET /partner/v1/documents.
 type DocumentItem struct {
 	ID       string `json:"id"`
