@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0 — 2026-07-30
+
+- **Orders: sticky `Cancelled`.** `OrderItem` adds `Cancelled` (same meaning as
+  sales-ledger / portal Sales Ledger sticky cancelled). Present on list and get.
+  Store reporting should exclude `Cancelled` from net sold totals.
+- Parity with `@shedcloud/partner-api` 0.10.0 and the `shedcloud-api-go`
+  Partner API changelog entry (2026-07-30).
+
 ## 0.9.0 — 2026-07-30
 
 - **Sales ledger.** `client.SalesLedger.List` for `GET /partner/v1/sales-ledger`
