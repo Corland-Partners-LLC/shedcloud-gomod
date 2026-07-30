@@ -316,6 +316,7 @@ if apiErr, ok := err.(*partnerapi.Error); ok {
 partnerapi.ScopeLotStockRead         // partner-api.lot-stock.read
 partnerapi.ScopeLocationBudgetsRead  // partner-api.location-budgets.read
 partnerapi.ScopeLocationBudgetsWrite // partner-api.location-budgets.write
+partnerapi.ScopeSalesLedgerRead      // partner-api.sales-ledger.read
 partnerapi.ScopeOrdersWrite          // partner-api.orders.write
 ```
 

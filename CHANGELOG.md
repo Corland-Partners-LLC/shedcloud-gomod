@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0 — 2026-07-30
+
+- **Sales ledger.** `client.SalesLedger.List` for `GET /partner/v1/sales-ledger`
+  (scope `ScopeSalesLedgerRead`). New types `SalesLedgerItem` and
+  `SalesLedgerListParams`. Rows include `SaleDate` and sticky `Cancelled`; list
+  accepts `SaleDateFrom` / `SaleDateTo`, `Cancelled`, status, and related filters.
+- Parity with `@shedcloud/partner-api` 0.9.0 and the `shedcloud-api-go`
+  Partner API sales-ledger surface.
+
 ## 0.8.1 — 2026-07-28
 
 - **Lot-stock typed photo galleries.** `LotStockItem` adds `FrontImages`,
