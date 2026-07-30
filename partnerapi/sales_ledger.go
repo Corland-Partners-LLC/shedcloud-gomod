@@ -10,7 +10,8 @@ import (
 // partner-api.sales-ledger.read.
 //
 // SaleDate is the calendar sale day for store / month reporting; LedgerDate is
-// the status/event register and is independent of SaleDate.
+// the status/event register and is independent of SaleDate. Cancelled is sticky
+// after Cancelled/Deleted on a previously sold order.
 type SalesLedgerService struct {
 	c *Client
 }

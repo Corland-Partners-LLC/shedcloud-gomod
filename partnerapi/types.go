@@ -1481,21 +1481,24 @@ type PaymentListParams struct {
 // SalesLedgerItem is one movement from GET /partner/v1/sales-ledger.
 // SaleDate is YYYY-MM-DD; LedgerDate is the status/event timestamp (RFC 3339).
 type SalesLedgerItem struct {
-	ID                         string  `json:"id"`
-	OrderID                    string  `json:"orderId,omitempty"`
-	OrderNumber                int64   `json:"orderNumber,omitempty"`
-	OrderNumberString          string  `json:"orderNumberString,omitempty"`
-	CustomerID                 string  `json:"customerId,omitempty"`
-	CustomerName               string  `json:"customerName,omitempty"`
-	CustomerPhone              string  `json:"customerPhone,omitempty"`
-	LocationID                 string  `json:"locationId,omitempty"`
-	LocationName               string  `json:"locationName,omitempty"`
-	SalesPersonName            string  `json:"salesPersonName,omitempty"`
-	SerialNumber               string  `json:"serialNumber,omitempty"`
-	SalesSource                string  `json:"salesSource,omitempty"`
-	SourceView                 string  `json:"sourceView,omitempty"`
-	SaleDate                   string  `json:"saleDate,omitempty"`
-	LedgerDate                 string  `json:"ledgerDate,omitempty"`
+	ID                string `json:"id"`
+	OrderID           string `json:"orderId,omitempty"`
+	OrderNumber       int64  `json:"orderNumber,omitempty"`
+	OrderNumberString string `json:"orderNumberString,omitempty"`
+	CustomerID        string `json:"customerId,omitempty"`
+	CustomerName      string `json:"customerName,omitempty"`
+	CustomerPhone     string `json:"customerPhone,omitempty"`
+	LocationID        string `json:"locationId,omitempty"`
+	LocationName      string `json:"locationName,omitempty"`
+	SalesPersonName   string `json:"salesPersonName,omitempty"`
+	SerialNumber      string `json:"serialNumber,omitempty"`
+	SalesSource       string `json:"salesSource,omitempty"`
+	SourceView        string `json:"sourceView,omitempty"`
+	SaleDate          string `json:"saleDate,omitempty"`
+	LedgerDate        string `json:"ledgerDate,omitempty"`
+	// Cancelled is sticky true when a previously sold order later moved to
+	// Cancelled or Deleted (still visible under saleDate filters).
+	Cancelled                  bool    `json:"cancelled"`
 	PreviousStatus             string  `json:"previousStatus,omitempty"`
 	NewStatus                  string  `json:"newStatus,omitempty"`
 	CurrentStatus              string  `json:"currentStatus,omitempty"`
@@ -1523,6 +1526,8 @@ type SalesLedgerListParams struct {
 	SaleDateTo     string `json:"saleDateTo,omitempty"`
 	LedgerDateFrom string `json:"ledgerDateFrom,omitempty"`
 	LedgerDateTo   string `json:"ledgerDateTo,omitempty"`
+	// Cancelled filters by the sticky cancelled flag when non-nil.
+	Cancelled *bool `json:"cancelled,omitempty"`
 }
 
 // DocumentItem is one file metadata row from GET /partner/v1/documents.
