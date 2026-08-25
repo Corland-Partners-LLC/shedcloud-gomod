@@ -30,6 +30,7 @@ type Client struct {
 	Users                *UsersService
 	Payments             *PaymentsService
 	SalesLedger          *SalesLedgerService
+	RevenueForecast      *RevenueForecastService
 	Documents            *DocumentsService
 	Events               *EventsService
 	SiteEvents           *SiteEventsService
@@ -119,6 +120,7 @@ func New(opts Options) (*Client, error) {
 	c.Users = &UsersService{c: c}
 	c.Payments = &PaymentsService{c: c}
 	c.SalesLedger = &SalesLedgerService{c: c}
+	c.RevenueForecast = &RevenueForecastService{c: c}
 	c.Documents = &DocumentsService{c: c}
 	c.Events = &EventsService{c: c}
 	c.SiteEvents = &SiteEventsService{c: c}

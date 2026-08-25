@@ -1534,6 +1534,112 @@ type SalesLedgerListParams struct {
 	Cancelled *bool `json:"cancelled,omitempty"`
 }
 
+// Period query keys for GET /partner/v1/revenue-forecast.
+const (
+	PeriodThisWeek  = "this_week"
+	PeriodLastWeek  = "last_week"
+	PeriodThisMonth = "this_month"
+	PeriodLastMonth = "last_month"
+)
+
+// RevenueForecastParams are query params for GET /partner/v1/revenue-forecast.
+// Provide Period or From+To (inclusive YYYY-MM-DD).
+type RevenueForecastParams struct {
+	Period     string `json:"period,omitempty"`
+	From       string `json:"from,omitempty"`
+	To         string `json:"to,omitempty"`
+	LocationID string `json:"locationId,omitempty"`
+	// Details, when non-nil, attaches WO + related order rows.
+	Details *bool `json:"details,omitempty"`
+	// DetailsFor is an optional comma subset: actual,afdTransferred,
+	// forecastNextPeriod,forecastPlus2,authorized,weeks.
+	DetailsFor string `json:"detailsFor,omitempty"`
+}
+
+// RevenueForecastPeriod echoes a resolved calendar window.
+type RevenueForecastPeriod struct {
+	Key      string `json:"key"`
+	Start    string `json:"start"`
+	End      string `json:"end"`
+	Timezone string `json:"timezone"`
+}
+
+// RevenueMoneyKPI is a summed ledger-identical money block.
+type RevenueMoneyKPI struct {
+	Amount          float64                 `json:"amount"`
+	BasePrice       float64                 `json:"basePrice"`
+	Upgrades        float64                 `json:"upgrades"`
+	RemovedUpgrades float64                 `json:"removedUpgrades"`
+	Units           int                     `json:"units"`
+	Details         []RevenueForecastDetail `json:"details,omitempty"`
+}
+
+// RevenueForecastPeriodKPI is a money block plus the shifted period.
+type RevenueForecastPeriodKPI struct {
+	Period          RevenueForecastPeriod   `json:"period"`
+	Amount          float64                 `json:"amount"`
+	BasePrice       float64                 `json:"basePrice"`
+	Upgrades        float64                 `json:"upgrades"`
+	RemovedUpgrades float64                 `json:"removedUpgrades"`
+	Units           int                     `json:"units"`
+	Details         []RevenueForecastDetail `json:"details,omitempty"`
+}
+
+// RevenueWeekKPI is one Sunday–Saturday authorized/delivery bucket.
+type RevenueWeekKPI struct {
+	Key             string                  `json:"key"`
+	Start           string                  `json:"start"`
+	End             string                  `json:"end"`
+	Amount          float64                 `json:"amount"`
+	BasePrice       float64                 `json:"basePrice"`
+	Upgrades        float64                 `json:"upgrades"`
+	RemovedUpgrades float64                 `json:"removedUpgrades"`
+	Units           int                     `json:"units"`
+	Details         []RevenueForecastDetail `json:"details,omitempty"`
+}
+
+// RevenueForecastDetail is one WO + related order used in a bucket.
+type RevenueForecastDetail struct {
+	WorkOrderID     string  `json:"workOrderId"`
+	WorkOrderNumber int64   `json:"workOrderNumber,omitempty"`
+	SerialNumber    string  `json:"serialNumber,omitempty"`
+	WorkOrderStatus string  `json:"workOrderStatus,omitempty"`
+	OrderID         string  `json:"orderId,omitempty"`
+	OrderNumber     int64   `json:"orderNumber,omitempty"`
+	OrderStatus     string  `json:"orderStatus,omitempty"`
+	OrderDelivered  bool    `json:"orderDelivered"`
+	QualifiedBy     string  `json:"qualifiedBy"`
+	BucketDate      string  `json:"bucketDate"`
+	DateSource      string  `json:"dateSource"`
+	BasePrice       float64 `json:"basePrice"`
+	Upgrades        float64 `json:"upgrades"`
+	RemovedUpgrades float64 `json:"removedUpgrades"`
+	Amount          float64 `json:"amount"`
+	AmountSource    string  `json:"amountSource"`
+}
+
+// RevenueForecastKPIs is the Revenue/Forecast card block.
+type RevenueForecastKPIs struct {
+	Actual             RevenueMoneyKPI          `json:"actual"`
+	AFDTransferred     RevenueMoneyKPI          `json:"afdTransferred"`
+	ForecastNextPeriod RevenueForecastPeriodKPI `json:"forecastNextPeriod"`
+	ForecastPlus2      RevenueForecastPeriodKPI `json:"forecastPlus2"`
+}
+
+// AuthorizedDeliveryKPIs is the Authorized/Delivery card block.
+type AuthorizedDeliveryKPIs struct {
+	Authorized RevenueMoneyKPI  `json:"authorized"`
+	Weeks      []RevenueWeekKPI `json:"weeks"`
+}
+
+// RevenueForecastResponse is the KPI envelope for GET /partner/v1/revenue-forecast.
+type RevenueForecastResponse struct {
+	Period             RevenueForecastPeriod  `json:"period"`
+	RevenueForecast    RevenueForecastKPIs    `json:"revenueForecast"`
+	AuthorizedDelivery AuthorizedDeliveryKPIs `json:"authorizedDelivery"`
+	DetailsTruncated   bool                   `json:"detailsTruncated,omitempty"`
+}
+
 // DocumentItem is one file metadata row from GET /partner/v1/documents.
 type DocumentItem struct {
 	ID       string `json:"id"`
