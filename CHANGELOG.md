@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.11.0 — 2026-08-25
+
+- **Revenue / forecast.** `client.RevenueForecast.Get` for
+  `GET /partner/v1/revenue-forecast` (scope `ScopeRevenueForecastRead`).
+  New types `RevenueForecastParams`, `RevenueForecastResponse`, KPI blocks,
+  week buckets, and detail rows. Qualification is delivery / promised dates;
+  money is the Sales Ledger order amount so a related order matches
+  `SalesLedger.List` `newOrderAmount`. Period totals do not equal the Sales
+  Ledger report for the same calendar window.
+- Parity with the `shedcloud-api-go` Partner API changelog entry (2026-08-25).
+
 ## 0.10.0 — 2026-07-30
 
 - **Orders: sticky `Cancelled`.** `OrderItem` adds `Cancelled` (same meaning as

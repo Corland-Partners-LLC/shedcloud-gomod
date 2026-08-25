@@ -105,6 +105,8 @@ Each resource maps to a section of the [hosted reference](https://go.shedcloud.c
 | `client.Domains` | `GET /partner/v1/domains`, `ForLocation(id)` for `GET /partner/v1/locations/{id}/domains` (white-label storefront domains, `defaultForStore` filter) | [#domains](https://go.shedcloud.com/partner/reference#domains) |
 | `client.Users` | `GET/POST/PATCH /partner/v1/users`, `Roles(ctx)` for `GET /partner/v1/roles` — `Create(...)` makes a company user (role, locations, invite email); `Update(...)` patches profile/role/locations/`Active` | [#users](https://go.shedcloud.com/partner/reference#users) |
 | `client.Payments` | `GET /partner/v1/payments[/{id}]` (read-only) | [#payments](https://go.shedcloud.com/partner/reference#payments) |
+| `client.SalesLedger` | `GET /partner/v1/sales-ledger` (booked-sales movements) | [#sales-ledger](https://go.shedcloud.com/partner/reference#sales-ledger) |
+| `client.RevenueForecast` | `GET /partner/v1/revenue-forecast` (Revenue/Forecast KPIs + Authorized/Delivery weeks) | [#revenue-forecast](https://go.shedcloud.com/partner/reference#revenue-forecast) |
 | `client.Documents` | `GET /partner/v1/documents`, `GET .../{id}/download` (short-lived presigned URL) | [#documents](https://go.shedcloud.com/partner/reference#documents) |
 | `client.Events` | `GET /partner/v1/events` cursor feed, `Each(...)` iterator, `Redeliver(id)`, `Deliveries(...)` webhook delivery log | [#events](https://go.shedcloud.com/partner/reference#events) |
 | `client.SiteEvents` | `POST /partner/v1/site-events` batch ingest (visitor behavioral tracking, snake_case body), `List(...)` / `Each(...)` read-back | [#site-events](https://go.shedcloud.com/partner/reference#site-events) |
@@ -153,6 +155,16 @@ newLead, err := client.Leads.Create(ctx, partnerapi.LeadCreateRequest{
 // Convert a quote to a sales order (requires partner-api.orders.write).
 // The new order starts in "Unsubmitted" — submit with UpdateStatus.
 order, err := client.Quotes.Convert(ctx, quote.ID, partnerapi.QuoteConvertRequest{})
+
+// Revenue / forecast KPIs for last month (requires partner-api.revenue-forecast.read).
+// Optional details attach WO + related order rows; amount matches Sales Ledger.
+details := true
+forecast, err := client.RevenueForecast.Get(ctx, partnerapi.RevenueForecastParams{
+	Period:     partnerapi.PeriodLastMonth,
+	Details:    &details,
+	DetailsFor: "actual",
+})
+_ = forecast
 
 // Or create a full order directly: customer + location + base product
 // (model + size), upgrades, and an optional configurator payload.
@@ -317,6 +329,7 @@ partnerapi.ScopeLotStockRead         // partner-api.lot-stock.read
 partnerapi.ScopeLocationBudgetsRead  // partner-api.location-budgets.read
 partnerapi.ScopeLocationBudgetsWrite // partner-api.location-budgets.write
 partnerapi.ScopeSalesLedgerRead      // partner-api.sales-ledger.read
+partnerapi.ScopeRevenueForecastRead  // partner-api.revenue-forecast.read
 partnerapi.ScopeOrdersWrite          // partner-api.orders.write
 ```
 
