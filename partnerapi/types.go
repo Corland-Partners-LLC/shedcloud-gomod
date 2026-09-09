@@ -235,6 +235,10 @@ type QuoteItem struct {
 	Converted            bool        `json:"converted"`
 	ConvertedOrderID     string      `json:"convertedOrderId,omitempty"`
 	ConvertedOrderNumber int         `json:"convertedOrderNumber,omitempty"`
+	// ViewURL is the full customer page the portal Share dialog copies
+	// ({PORTAL_BASE_URL}/quotes/{state}/view/{id}). Present on create, get,
+	// and list when PORTAL_BASE_URL is configured.
+	ViewURL string `json:"viewUrl,omitempty"`
 	// ValidUntil is the quote expiration timestamp (RFC 3339). When it passes
 	// while the quote is still Open/Active, a quote.expired event is emitted.
 	ValidUntil     string             `json:"validUntil,omitempty"`

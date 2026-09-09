@@ -260,6 +260,35 @@ func TestQuoteGetIncludesSerialAndWorkOrder(t *testing.T) {
 	}
 }
 
+func TestQuoteGetIncludesViewURL(t *testing.T) {
+	t.Parallel()
+	const wantView = "https://portal.shedcloud.com/quotes/texas/view/quote-1"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":      "quote-1",
+			"viewUrl": wantView,
+			"pricing": map[string]any{"subtotal": 8200, "total": 8995, "paymentType": "rto"},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: srv.URL,
+		Auth:    partnerapi.Auth{APIKey: "sc_live_testkey"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	quote, err := client.Quotes.Get(context.Background(), "quote-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if quote.ViewURL != wantView {
+		t.Fatalf("ViewURL = %q, want %q", quote.ViewURL, wantView)
+	}
+}
+
 func TestQuoteListConvertedQuery(t *testing.T) {
 	t.Parallel()
 	converted := false

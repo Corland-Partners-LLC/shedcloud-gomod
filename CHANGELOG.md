@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.0 — 2026-09-09
+
+- **Quote `viewUrl`.** `QuoteItem` adds `ViewURL` — the full customer Share
+  page (`{PORTAL_BASE_URL}/quotes/{state}/view/{id}`), the same link the
+  portal Share Customer View dialog copies. Present on create, get, and list
+  when `PORTAL_BASE_URL` is configured.
+- Parity with the `shedcloud-api-go` Partner API changelog entry (2026-09-09).
+
 ## 0.11.0 — 2026-08-25
 
 - **Revenue / forecast.** `client.RevenueForecast.Get` for
