@@ -16,7 +16,8 @@ import (
 type Auth struct {
 	// APIKey is a long-lived sc_live_… secret sent as Bearer.
 	APIKey string
-	// OAuth client credentials are exchanged at POST /oauth/token.
+	// OAuth client credentials (sc_client_… / sc_secret_…) are exchanged at
+	// POST /oauth/token as form fields for a short-lived sc_at_… token.
 	ClientID     string
 	ClientSecret string
 }
@@ -52,7 +53,7 @@ func newAuthProvider(baseURL string, auth Auth, httpDo func(*http.Request) (*htt
 		skew = 60 * time.Second
 	}
 	return &authProvider{
-		baseURL: trimTrailingSlashes(baseURL),
+		baseURL: ResolveBaseURL(baseURL),
 		auth:    auth,
 		httpDo:  httpDo,
 		skew:    skew,
@@ -87,6 +88,8 @@ func (p *authProvider) refresh(ctx context.Context) (string, error) {
 func (p *authProvider) refreshOAuthTokenLocked(ctx context.Context) (string, error) {
 	form := url.Values{}
 	form.Set("grant_type", "client_credentials")
+	form.Set("client_id", p.auth.ClientID)
+	form.Set("client_secret", p.auth.ClientSecret)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+"/oauth/token", strings.NewReader(form.Encode()))
 	if err != nil {
@@ -94,7 +97,6 @@ func (p *authProvider) refreshOAuthTokenLocked(ctx context.Context) (string, err
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.SetBasicAuth(p.auth.ClientID, p.auth.ClientSecret)
 
 	resp, err := p.httpDo(req)
 	if err != nil {
@@ -132,23 +134,4 @@ func (p *authProvider) refreshOAuthTokenLocked(ctx context.Context) (string, err
 		expiresAt:   time.Now().Add(time.Duration(expiresIn) * time.Second),
 	}
 	return token.AccessToken, nil
-}
-
-func extractError(body any, fallback string) (message, code string) {
-	message = fallback
-	m, ok := body.(map[string]any)
-	if !ok {
-		return message, ""
-	}
-	if s, ok := m["error_description"].(string); ok && s != "" {
-		message = s
-	} else if s, ok := m["error"].(string); ok && s != "" {
-		message = s
-	} else if s, ok := m["message"].(string); ok && s != "" {
-		message = s
-	}
-	if s, ok := m["error"].(string); ok {
-		code = s
-	}
-	return message, code
 }

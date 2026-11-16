@@ -35,19 +35,34 @@ func WithIdempotencyKey(key string) RequestOption {
 	}
 }
 
-// WithIfMatch sends the record's version as an If-Match precondition on an
-// update (PATCH) request: on mismatch the server rejects with 409 Conflict
-// instead of overwriting a newer write.
-func WithIfMatch(version int64) RequestOption {
-	return func(req *http.Request) {
-		req.Header.Set("If-Match", strconv.FormatInt(version, 10))
-	}
+// withAccept overrides the Accept header (used for the PDF download).
+func withAccept(v string) RequestOption {
+	return func(req *http.Request) { req.Header.Set("Accept", v) }
 }
 
+// request sends one call and decodes a JSON response into out (when non-nil).
 func (c *httpClient) request(ctx context.Context, method, path string, query any, body any, out any, opts ...RequestOption) error {
-	u, err := url.Parse(c.baseURL + path)
+	raw, err := c.do(ctx, method, path, query, body, opts...)
 	if err != nil {
 		return err
+	}
+	if out == nil || len(raw) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(raw, out); err != nil {
+		return fmt.Errorf("partnerapi: decode response: %w", err)
+	}
+	return nil
+}
+
+// do sends one call and returns the raw 2xx response body.
+func (c *httpClient) do(ctx context.Context, method, path string, query any, body any, opts ...RequestOption) ([]byte, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	u, err := url.Parse(c.baseURL + path)
+	if err != nil {
+		return nil, err
 	}
 	if query != nil {
 		q := encodeQuery(query)
@@ -60,7 +75,7 @@ func (c *httpClient) request(ctx context.Context, method, path string, query any
 	if body != nil {
 		raw, err := json.Marshal(body)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		bodyReader = bytes.NewReader(raw)
 	}
@@ -74,7 +89,7 @@ func (c *httpClient) request(ctx context.Context, method, path string, query any
 
 	req, err := http.NewRequestWithContext(reqCtx, method, u.String(), bodyReader)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", c.userAgent)
@@ -84,10 +99,10 @@ func (c *httpClient) request(ctx context.Context, method, path string, query any
 
 	token, err := c.getToken(reqCtx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if token == "" {
-		return newError("no access token available", http.StatusUnauthorized, nil, "")
+		return nil, newError("no access token available", http.StatusUnauthorized, nil, "")
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -98,9 +113,9 @@ func (c *httpClient) request(ctx context.Context, method, path string, query any
 	resp, err := c.httpDo(req)
 	if err != nil {
 		if reqCtx.Err() == context.DeadlineExceeded {
-			return newError(fmt.Sprintf("request timed out after %s", c.timeout), http.StatusRequestTimeout, nil, "")
+			return nil, newError(fmt.Sprintf("request timed out after %s", c.timeout), http.StatusRequestTimeout, nil, "")
 		}
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -114,20 +129,15 @@ func (c *httpClient) request(ctx context.Context, method, path string, query any
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		msg, code := extractError(parsed, resp.Status)
-		return newError(msg, resp.StatusCode, parsed, code)
+		return nil, newError(msg, resp.StatusCode, parsed, code)
 	}
 
-	if out == nil || len(raw) == 0 {
-		return nil
-	}
-	if err := json.Unmarshal(raw, out); err != nil {
-		return fmt.Errorf("partnerapi: decode response: %w", err)
-	}
-	return nil
+	return raw, nil
 }
 
 // encodeQuery turns a params struct into a query string using json tags as
-// keys. Zero values and nil pointers are omitted (same as the TS SDK).
+// keys. Zero values and nil pointers are omitted; string slices are joined
+// with commas (the ERP reads statuses=a,b).
 func encodeQuery(v any) string {
 	if v == nil {
 		return ""
@@ -216,6 +226,12 @@ func formatQueryValue(v reflect.Value) string {
 		return strconv.FormatUint(v.Uint(), 10)
 	case reflect.Float32, reflect.Float64:
 		return strconv.FormatFloat(v.Float(), 'f', -1, 64)
+	case reflect.Slice:
+		parts := make([]string, 0, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			parts = append(parts, formatQueryValue(v.Index(i)))
+		}
+		return strings.Join(parts, ",")
 	default:
 		return fmt.Sprint(v.Interface())
 	}

@@ -1,5 +1,104 @@
 # Changelog
 
+## 1.0.0 — unreleased
+
+**Major release: the SDK now talks to the ShedCloud ERP Partner API.** It is
+not source-compatible with 0.x. Anyone who stays on `v0.12.0` (or any 0.x) keeps
+calling the Legacy Partner API unchanged; pin with
+`go get github.com/Corland-Partners-LLC/shedcloud-gomod@v0.12.0`. The import
+path is unchanged (no `/v2`: the module had no `v1+` release before). See the
+migration guide in `README.md`.
+
+Source of truth: `shedcloud-erp-api` `docs/partner/openapi.yaml` (167 paths),
+`PARTNER_API.md`, `PARTNER_AUTH.md`, `internal/partnerauth/scopes.go` and the
+handlers under `internal/handler/partnerapi`. The OpenAPI file has no response
+schemas, so response types were modelled from the handler/domain structs.
+
+### Breaking changes
+
+- **Host.** No built-in hosts (the ERP docs publish none).
+  `Options.BaseURL` is required (`ErrBaseURLRequired`). Removed `Environment`,
+  `EnvironmentProduction`, `EnvironmentSandbox`, `HostProduction`,
+  `HostSandbox`, `DefaultBaseURL`; `ResolveBaseURL` takes one argument.
+- **JSON is snake_case and money is a decimal string** (0.x: camelCase,
+  `float64`). Every request/response type was re-modelled.
+- **Lists.** `PaginatedResponse[T]` / `PaginationParams` / `SortOrder` replaced
+  by `Page[T]{Items, Pagination}` and `ListParams{Page, PageSize, Q}`.
+- **Errors** follow `{error, code, message}`: `Error.Message` is the
+  plain-language `message` (else `error`), `Error.Code` is `code`. Added
+  `IsConflict`, `IsUnprocessable`.
+- **OAuth** sends `client_id` / `client_secret` as form fields (0.x used HTTP
+  Basic).
+- **`WithIfMatch` removed** (the ERP does not document `If-Match`).
+- **Scopes** are now the ERP catalog (91, all 0.x scopes kept). Added
+  `HasScope`.
+- **Webhooks.** Header constants are now `WebhookEventHeader`
+  (`X-ShedCloud-Event`) and `WebhookDeliveryHeader` (`X-ShedCloud-Delivery`);
+  `WebhookEventIDHeader` / `WebhookEventTypeHeader` removed; body type is
+  `WebhookEvent`. Signature scheme and `VerifyWebhookSignature` unchanged.
+- **`LotStock` → `StockUnits`** (`/stock-units`): List, Get, Create,
+  RegisterReturn, Update, Release, PDF. Typed photo galleries are not on the
+  unit.
+- **`Quotes.Convert` → `Quotes.Sell`** (`POST /quotes/{id}/sell`).
+- **Lines.** `AddLineItem` / `DeleteLineItem` / `LineItems` →
+  `ReplaceLines` (`PUT …/lines`, one item in v1) + `UpdateLineBuild`.
+- **Status history.** Quotes/orders: `Events`; work orders/leads:
+  `StatusHistory` returns a slice. `UpdateStatus` is `PATCH` (was `POST`).
+- **Quote create** returns `QuoteCreated` with `ViewURL` and a one-time
+  `ShareToken`; `ViewURL` is no longer on get/list (only `HasShareToken`).
+- **Orders.** `SaleDate` / `SoldPricing` patching removed (`sale_date`
+  read-only); `Cancelled` → `LedgerCancelled` (+ `LedgerBooked`,
+  `LedgerAmount`). Order payments → `Customers.CreatePayment` /
+  `Payments.List` with `ReferenceType: "order"`. `CreatePaymentLink` removed
+  (no ERP equivalent).
+- **`SalesLedger.List` → `SalesLedger.Report`** (`POST`, new filters
+  `ledger_from/to`, `sale_from/to`, `store_id`, `movement_mode`,
+  `include_sums`; rows are ledger movements).
+- **`RevenueForecast.Get`** returns the ERP forecast strip
+  `[{label, amount}]` (camelCase query params, `amount` is a JSON number); the
+  0.x KPI blocks, week buckets and detail rows do not exist in the ERP.
+- **`SiteEvents`.** `Delivery` / `Payment` blocks removed (put detail in
+  `Payload`); `Each` and cursors removed (the ERP returns one batch, `hasMore`
+  is always false). `Track` stays snake_case.
+- **`Me`** returns `{tenant_id, credential_id, kind, scopes}` (no company or
+  rate-limit block).
+- **Removed, no ERP equivalent:** `Customers.Merge`, `Orders.CreatePaymentLink`,
+  `StockTemplates`, BOM `dimension-variables`, `Products.CreateSize`.
+- Renames: `Users.Create` → `Users.Invite`; `Domains.ForLocation` →
+  `Locations.Domains`; `Agreements.Active()` now returns a page; `Events.Each`
+  removed.
+
+### Added
+
+- `Leads.Assign`, `Leads.Convert`; `Quotes`/`Orders` terms (cash and RTO
+  preview/compute/set), mileage, tax, reprice preview/apply; `Orders.Contract`;
+  `Customers.Ledger`; `Payments`; `Products.ResolvePrice`
+  (`/pricing/resolve`); `Locations.Domains`; and every resource listed under
+  Full ERP coverage.
+
+### Full ERP coverage
+
+All 214 operations (166 paths) of the ERP `/partner/v1` `openapi.yaml` have a method (see the
+Resources table in `README.md`), including products write and pricing matrix,
+catalog, promo codes, delivery offers, RTO agreements, order signature process,
+sold upgrades, inventory settings / adjustments / transfers, Request for Sale,
+sales returns, stock reconciliations, cycle counts, warehouse tasks, service
+tickets, notes, audit, communications, opportunities, document uploads,
+banking, financial statements, commissions, freight bills, fixed assets, FX,
+consolidations, subscriptions, MRP, quality, analytics exports, EDI maps and
+engineering changes. A route test pins method and path for each one.
+
+### Notes
+
+- Where `PARTNER_API.md` examples disagree with the handler code, the SDK
+  follows the code (customer ledger `net_balance`, sales ledger `rows`).
+- Some list responses have no `pagination` block in the ERP (service tickets,
+  promo codes, sale requests, catalog, banks…); those return slices or a zero
+  `Pagination`. Scope and filter details are in each method's doc comment.
+- Cash/RTO previews (`TermsPreview`) and `ResolvePrice` return generic maps;
+  nested blobs (addresses, snapshots, work-order components, agreement
+  schedules) stay `json.RawMessage`.
+
 ## 0.12.0 — 2026-09-09
 
 - **Quote `viewUrl`.** `QuoteItem` adds `ViewURL` — the full customer Share

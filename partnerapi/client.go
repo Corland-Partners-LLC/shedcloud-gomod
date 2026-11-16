@@ -7,15 +7,15 @@ import (
 	"time"
 )
 
-// Client is the official Go client for the ShedCloud Partner API.
+// Client is the official Go client for the ShedCloud ERP Partner API.
 //
 //	client, err := partnerapi.New(partnerapi.Options{
-//		Auth: partnerapi.Auth{APIKey: os.Getenv("SHEDCLOUD_API_KEY")},
+//		BaseURL: os.Getenv("SHEDCLOUD_BASE_URL"),
+//		Auth:    partnerapi.Auth{APIKey: os.Getenv("SHEDCLOUD_API_KEY")},
 //	})
-//	stock, err := client.LotStock.List(ctx, partnerapi.LotStockListParams{Limit: 50})
+//	page, err := client.StockUnits.List(ctx, partnerapi.StockUnitListParams{})
 type Client struct {
-	LotStock             *LotStockService
-	StockTemplates       *StockTemplatesService
+	StockUnits           *StockUnitsService
 	Leads                *LeadsService
 	Quotes               *QuotesService
 	Orders               *OrdersService
@@ -36,6 +36,37 @@ type Client struct {
 	SiteEvents           *SiteEventsService
 	ConfiguratorSessions *ConfiguratorSessionsService
 
+	Catalog              *CatalogService
+	PromoCodes           *PromoCodesService
+	DeliveryOffers       *DeliveryOffersService
+	RTOAgreements        *RTOAgreementsService
+	SoldUpgrades         *SoldUpgradesService
+	Inventory            *InventoryService
+	StockSaleRequests    *StockSaleRequestsService
+	SalesReturns         *SalesReturnsService
+	StockReconciliations *StockReconciliationsService
+	CycleCounts          *CycleCountsService
+	WarehouseTasks       *WarehouseTasksService
+	ServiceTickets       *ServiceTicketsService
+	Notes                *NotesService
+	Audit                *AuditService
+	Communications       *CommunicationsService
+	Opportunities        *OpportunitiesService
+	BankAccounts         *BankAccountsService
+	BankReconciliations  *BankReconciliationsService
+	FinancialStatements  *FinancialStatementsService
+	Commissions          *CommissionsService
+	FreightBills         *FreightBillsService
+	FixedAssets          *FixedAssetsService
+	FX                   *FXService
+	Consolidations       *ConsolidationsService
+	Subscriptions        *SubscriptionsService
+	MRP                  *MRPService
+	Quality              *QualityService
+	Analytics            *AnalyticsService
+	EDIMaps              *EDIMapsService
+	EngineeringChanges   *EngineeringChangesService
+
 	// BaseURL is the resolved API host used for all requests.
 	BaseURL string
 
@@ -45,11 +76,9 @@ type Client struct {
 
 // Options configures a Partner API Client.
 type Options struct {
-	// Environment selects a built-in host. Defaults to production.
-	// Ignored when BaseURL is set.
-	Environment Environment
-	// BaseURL overrides the host (trailing slashes stripped). Prefer Environment
-	// unless you need a custom/local host.
+	// BaseURL is the ERP Partner API host, required (trailing slashes are
+	// stripped). The ERP docs publish no fixed production or sandbox host, so
+	// the SDK has none built in.
 	BaseURL string
 	// Auth is required. Set APIKey or ClientID+ClientSecret.
 	Auth Auth
@@ -66,11 +95,14 @@ type Options struct {
 
 // New builds a Partner API client.
 func New(opts Options) (*Client, error) {
+	baseURL := ResolveBaseURL(opts.BaseURL)
+	if baseURL == "" {
+		return nil, ErrBaseURLRequired
+	}
 	if err := opts.Auth.validate(); err != nil {
 		return nil, err
 	}
 
-	baseURL := ResolveBaseURL(opts.BaseURL, opts.Environment)
 	httpClientImpl := opts.HTTPClient
 	if httpClientImpl == nil {
 		httpClientImpl = &http.Client{}
@@ -104,11 +136,10 @@ func New(opts Options) (*Client, error) {
 		auth:    auth,
 		http:    hc,
 	}
-	c.LotStock = &LotStockService{c: c}
-	c.StockTemplates = &StockTemplatesService{c: c}
+	c.StockUnits = &StockUnitsService{c: c}
 	c.Leads = &LeadsService{c: c}
-	c.Quotes = &QuotesService{c: c}
-	c.Orders = &OrdersService{c: c}
+	c.Quotes = newQuotesService(c)
+	c.Orders = newOrdersService(c)
 	c.WorkOrders = &WorkOrdersService{c: c}
 	c.Locations = &LocationsService{c: c}
 	c.LocationBudgets = &LocationBudgetsService{c: c}
@@ -125,6 +156,36 @@ func New(opts Options) (*Client, error) {
 	c.Events = &EventsService{c: c}
 	c.SiteEvents = &SiteEventsService{c: c}
 	c.ConfiguratorSessions = &ConfiguratorSessionsService{c: c}
+	c.Catalog = &CatalogService{c: c}
+	c.PromoCodes = &PromoCodesService{c: c}
+	c.DeliveryOffers = &DeliveryOffersService{c: c}
+	c.RTOAgreements = &RTOAgreementsService{c: c}
+	c.SoldUpgrades = &SoldUpgradesService{c: c}
+	c.Inventory = &InventoryService{c: c}
+	c.StockSaleRequests = &StockSaleRequestsService{c: c}
+	c.SalesReturns = &SalesReturnsService{c: c}
+	c.StockReconciliations = &StockReconciliationsService{c: c}
+	c.CycleCounts = &CycleCountsService{c: c}
+	c.WarehouseTasks = &WarehouseTasksService{c: c}
+	c.ServiceTickets = &ServiceTicketsService{c: c}
+	c.Notes = &NotesService{c: c}
+	c.Audit = &AuditService{c: c}
+	c.Communications = &CommunicationsService{c: c}
+	c.Opportunities = &OpportunitiesService{c: c}
+	c.BankAccounts = &BankAccountsService{c: c}
+	c.BankReconciliations = &BankReconciliationsService{c: c}
+	c.FinancialStatements = &FinancialStatementsService{c: c}
+	c.Commissions = &CommissionsService{c: c}
+	c.FreightBills = &FreightBillsService{c: c}
+	c.FixedAssets = &FixedAssetsService{c: c}
+	c.FX = &FXService{c: c}
+	c.Consolidations = &ConsolidationsService{c: c}
+	c.Subscriptions = &SubscriptionsService{c: c}
+	c.MRP = &MRPService{c: c}
+	c.Quality = &QualityService{c: c}
+	c.Analytics = &AnalyticsService{c: c}
+	c.EDIMaps = &EDIMapsService{c: c}
+	c.EngineeringChanges = &EngineeringChangesService{c: c}
 	return c, nil
 }
 
