@@ -1,337 +1,203 @@
 # shedcloud-gomod
 
-Official Go client for the ShedCloud Partner API (`/partner/v1/*`).
+Official Go client for the **ShedCloud ERP Partner API** (`/partner/v1/*`).
 
-Use this module from Go 1.22+ to call company-scoped Partner API endpoints with an API key (`sc_live_…`) or OAuth2 client credentials.
+> **Which version do I use?**
+>
+> | Module version | Talks to | JSON |
+> |---|---|---|
+> | **v1.x** (this README) | the new ShedCloud **ERP** Partner API | snake_case, money as decimal strings |
+> | **v0.x** (up to 0.12.0) | the **Legacy** Partner API | camelCase, money as numbers |
+>
+> The two APIs are different services. If you stay on `v0.x` you keep calling Legacy and nothing changes for you; pin it with `go get github.com/Corland-Partners-LLC/shedcloud-gomod@v0.12.0`. Move to `v1.x` only when your company runs on the ERP. See [Migrating from 0.x](#migrating-from-0x).
+
+Go 1.22+. API key (`sc_live_…`) or OAuth2 client credentials.
 
 ## Install
 
 ```bash
-go get github.com/Corland-Partners-LLC/shedcloud-gomod@latest
+go get github.com/Corland-Partners-LLC/shedcloud-gomod@v1.0.0
 ```
 
-## Hosts
+The import path stays `github.com/Corland-Partners-LLC/shedcloud-gomod/partnerapi` (no `/v2` suffix: the module never had a `v1+` release before).
 
-| Environment | Host |
-|-------------|------|
-| `production` (default) | `https://go.shedcloud.com` |
-| `sandbox` | `https://api.shedcloudtest.com` |
+## Host (you must set it)
 
-Pass `Environment` for sandbox, or `BaseURL` for a custom/local override.
+The ERP Partner API docs publish no fixed production or sandbox host, so **this SDK has none built in**. `Options.BaseURL` is required; `New` returns `ErrBaseURLRequired` without it. Use the host your ShedCloud contact gave you (it is also shown in the portal, Settings → Developer API).
 
 ## Quick start
 
-### API key (production)
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"log"
-	"os"
-
-	"github.com/Corland-Partners-LLC/shedcloud-gomod/partnerapi"
-)
-
-func main() {
-	client, err := partnerapi.New(partnerapi.Options{
-		Auth: partnerapi.Auth{APIKey: os.Getenv("SHEDCLOUD_API_KEY")},
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	stock, err := client.LotStock.List(context.Background(), partnerapi.LotStockListParams{
-		PaginationParams: partnerapi.PaginationParams{Limit: 50},
-		PurchaseType:     "Lot Stock",
-		Sort:             "price",
-		Order:            partnerapi.SortAsc,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	unit := stock.Data[0]
-	fmt.Println(stock.Total, unit.Title)
-	// Typed public photo galleries (CDN URL slices; empty when none):
-	// unit.HeroImages, unit.FrontImages, unit.BackImages,
-	// unit.LeftImages, unit.RightImages, unit.ExteriorImages, unit.InteriorImages
-}
-```
-
-### Sandbox
-
 ```go
 client, err := partnerapi.New(partnerapi.Options{
-	Environment: partnerapi.EnvironmentSandbox,
-	Auth:        partnerapi.Auth{APIKey: os.Getenv("SHEDCLOUD_API_KEY")},
+	BaseURL: os.Getenv("SHEDCLOUD_BASE_URL"), // required, e.g. https://api.example.com
+	Auth:    partnerapi.Auth{APIKey: os.Getenv("SHEDCLOUD_API_KEY")},
 })
+if err != nil {
+	log.Fatal(err)
+}
+
+me, _ := client.Me(ctx) // credential id, kind, granted scopes
+fmt.Println(me.Scopes)
+
+page, err := client.StockUnits.List(ctx, partnerapi.StockUnitListParams{
+	ListParams: partnerapi.ListParams{PageSize: 20},
+	Statuses:   []string{"available"},
+})
+for _, u := range page.Items {
+	fmt.Println(u.SerialNumber, u.ProductName, u.AskingPrice) // money is a string: "6500.00"
+}
+fmt.Println(page.Pagination.Total)
 ```
 
 ### OAuth2 client credentials
 
 ```go
 client, err := partnerapi.New(partnerapi.Options{
+	BaseURL: baseURL,
 	Auth: partnerapi.Auth{
-		ClientID:     os.Getenv("SHEDCLOUD_CLIENT_ID"),
-		ClientSecret: os.Getenv("SHEDCLOUD_CLIENT_SECRET"),
+		ClientID:     os.Getenv("SHEDCLOUD_CLIENT_ID"),     // sc_client_…
+		ClientSecret: os.Getenv("SHEDCLOUD_CLIENT_SECRET"), // sc_secret_…
 	},
-})
-// Access tokens are fetched from POST /oauth/token and cached until near expiry.
-orders, err := client.Orders.List(ctx, partnerapi.OrderListParams{
-	SalesListParams: partnerapi.SalesListParams{Status: "Unprocessed", PaginationParams: partnerapi.PaginationParams{Limit: 25}},
 })
 ```
 
-Create credentials in the ShedCloud portal under **Settings → Developer API**.
+The token (`sc_at_…`) is fetched from `POST /oauth/token` (form fields), cached, and refreshed shortly before it expires. `client.RefreshAccessToken(ctx)` forces a refresh.
+
+### Lists, money, ids
+
+- Every list takes `ListParams{Page, PageSize, Q}` (1-based, `PageSize` max 100) and returns `*Page[T]{Items, Pagination{Page, PageSize, Total}}`.
+- Money and quantities are **decimal strings** (`"6500.00"`). Use a decimal library (for example `shopspring/decimal`) to compute; never `float64`.
+- Update (`PATCH`) request types use pointer fields: only non-nil fields are sent.
+- The ERP rejects unknown JSON fields with 400, so request types contain exactly the fields the ERP accepts.
+- Create calls accept `partnerapi.WithIdempotencyKey("key")` (24h replay; same key with a different body is a 409).
+
+### Place to Order
+
+```go
+q, _ := client.Quotes.Create(ctx, partnerapi.QuoteCreateRequest{StoreLocationID: loc, DealType: "cash"})
+fmt.Println(q.ViewURL) // customer page; q.ShareToken is returned only here, once
+
+_, _ = client.Quotes.ReplaceLines(ctx, q.ID, []partnerapi.LineInput{{StockUnitID: unitID}})
+_, _ = client.Quotes.SetCustomer(ctx, q.ID, partnerapi.CustomerLinkRequest{Name: "Sam River", Email: "sam@example.com"})
+sold, _ := client.Quotes.Sell(ctx, q.ID) // replaces Convert
+order, _ := client.Orders.Get(ctx, sold.ConvertedOrderID)
+```
 
 ## Resources
 
-Each resource maps to a section of the [hosted reference](https://go.shedcloud.com/partner/reference).
+| Client field | ERP routes | Notes |
+|---|---|---|
+| `Me(ctx)` | `GET /me` | credential, kind, scopes |
+| `Company` | `/company` | |
+| `StockUnits` | `/stock-units` | replaces `LotStock`; List, Get, Create, RegisterReturn, Update, Release, PDF |
+| `Leads` | `/leads` | List, Get, Create, Update, UpdateStatus, Assign, Convert, StatusHistory |
+| `Quotes` | `/quotes` | List, Get, Create, Update, UpdateStatus, SetCustomer, ReplaceLines, UpdateLineBuild, cash/RTO terms (Preview/Compute/Set), ComputeMileage, ResolveTax, PreviewReprice, Reprice, **Sell**, Events |
+| `Orders` | `/orders` | same shared calls as Quotes (no Sell), plus UpdateStatus, Contract |
+| `WorkOrders` | `/work-orders` | List, Get, Create, Update, UpdateStatus, StatusHistory |
+| `LocationBudgets` | `/location-budgets` | List, Get, Create, Update (PUT) |
+| `SalesLedger` | `POST /sales-ledger` | `Report` |
+| `RevenueForecast` | `/revenue-forecast` | `Get` |
+| `SiteEvents` | `/site-events` | `Track` (snake_case body), `List` |
+| `Customers` | `/customers` | List, Get, Create, Update, Payments, CreatePayment, Ledger |
+| `Payments` | `/payments` | List, Get |
+| `Locations` | `/locations` | List, Get, Create, Update, Domains |
+| `Products` | `/products`, `/pricing/resolve` | List, Get, ResolvePrice (read only) |
+| `Agreements` | `/agreements` | List, Active, Get, ListStateLegal, GetStateLegal |
+| `Users` | `/users`, `/roles` | List, Get, Invite, Update, Roles |
+| `Domains` | `/domains` | List |
+| `Documents` | `/documents` | List (by entity), Download |
+| `Events` | `/events`, `/webhook-deliveries` | List, Deliveries, Redeliver |
+| `ConfiguratorSessions` | `/configurator-sessions` | Create |
 
-| Client field | Endpoints | Reference |
-|--------------|-----------|-----------|
-| `client.LotStock` | `GET /partner/v1/lot-stock` | [#lot-stock](https://go.shedcloud.com/partner/reference#lot-stock) |
-| `client.StockTemplates` | `GET /partner/v1/stock-templates` (buildable catalog designs) | [#stock-templates](https://go.shedcloud.com/partner/reference#stock-templates) |
-| `client.Leads` | `GET/POST/PATCH /partner/v1/leads`, `POST .../status`, `GET .../status-history` — `Create(...)` makes a lead with location lead-routing | [#leads](https://go.shedcloud.com/partner/reference#leads) |
-| `client.Quotes` | `GET/POST/PATCH /partner/v1/quotes`, `POST .../status`, `GET .../status-history`, `GET/POST/DELETE .../line-items` — `Create(...)` makes an in-stock quote from a serial number, `Convert(id, ...)` places it as a sales order | [#quotes](https://go.shedcloud.com/partner/reference#quotes) |
-| `client.Orders` | `GET/POST/PATCH /partner/v1/orders`, `POST .../status`, `GET .../status-history`, `GET/POST/DELETE .../line-items`, `GET .../contract`, `GET/POST .../payments`, `POST .../payment-links` — `Create(...)` makes a full order (customer, base product + size, upgrades, configurator); `CreatePayment(...)` records manual payments, `CreatePaymentLink(...)` returns a Stripe Checkout URL; list/get include sticky `Cancelled` | [#orders](https://go.shedcloud.com/partner/reference#orders) |
-| `client.WorkOrders` | `GET/POST/PATCH /partner/v1/work-orders`, `POST .../status`, `GET .../status-history` — `Create(...)` makes a work order with friendly type enums + optional `SizeID` | [#work-orders](https://go.shedcloud.com/partner/reference#work-orders) |
-| `client.Locations` | `GET/POST/PATCH /partner/v1/locations` | [#locations](https://go.shedcloud.com/partner/reference#locations) |
-| `client.LocationBudgets` | `GET/POST/PUT /partner/v1/location-budgets` — per-location sales targets (annual/monthly dollar amounts, distribution percentages, lead targets); one budget per company, location, and calendar year | [#location-budgets](https://go.shedcloud.com/partner/reference#location-budgets) |
-| `client.Customers` | `GET/POST/PATCH /partner/v1/customers`, `POST .../{id}/merge` | [#customers](https://go.shedcloud.com/partner/reference#customers) |
-| `client.Products` | `GET/POST/PATCH /partner/v1/products`, `CreateSize(id, ...)` for `POST .../{id}/sizes` (finished catalog products with gallery `Images`) | [#products](https://go.shedcloud.com/partner/reference#products) |
-| `client.Domains` | `GET /partner/v1/domains`, `ForLocation(id)` for `GET /partner/v1/locations/{id}/domains` (white-label storefront domains, `defaultForStore` filter) | [#domains](https://go.shedcloud.com/partner/reference#domains) |
-| `client.Users` | `GET/POST/PATCH /partner/v1/users`, `Roles(ctx)` for `GET /partner/v1/roles` — `Create(...)` makes a company user (role, locations, invite email); `Update(...)` patches profile/role/locations/`Active` | [#users](https://go.shedcloud.com/partner/reference#users) |
-| `client.Payments` | `GET /partner/v1/payments[/{id}]` (read-only) | [#payments](https://go.shedcloud.com/partner/reference#payments) |
-| `client.SalesLedger` | `GET /partner/v1/sales-ledger` (booked-sales movements) | [#sales-ledger](https://go.shedcloud.com/partner/reference#sales-ledger) |
-| `client.RevenueForecast` | `GET /partner/v1/revenue-forecast` (Revenue/Forecast KPIs + Authorized/Delivery weeks) | [#revenue-forecast](https://go.shedcloud.com/partner/reference#revenue-forecast) |
-| `client.Documents` | `GET /partner/v1/documents`, `GET .../{id}/download` (short-lived presigned URL) | [#documents](https://go.shedcloud.com/partner/reference#documents) |
-| `client.Events` | `GET /partner/v1/events` cursor feed, `Each(...)` iterator, `Redeliver(id)`, `Deliveries(...)` webhook delivery log | [#events](https://go.shedcloud.com/partner/reference#events) |
-| `client.SiteEvents` | `POST /partner/v1/site-events` batch ingest (visitor behavioral tracking, snake_case body), `List(...)` / `Each(...)` read-back | [#site-events](https://go.shedcloud.com/partner/reference#site-events) |
-| `client.ConfiguratorSessions` | `POST /partner/v1/configurator-sessions` (single-use 3D configurator launch URLs) | [#configurator-sessions](https://go.shedcloud.com/partner/reference#configurator-sessions) |
+### ERP resources the SDK does not cover yet
 
-### Examples
+Available in the ERP Partner API (see its `openapi.yaml`) but **not wrapped here** — pending, not part of 1.0.0. Call them with your own `net/http` for now.
 
-```go
-lead, err := client.Leads.Get(ctx, "665f0a1b2c3d4e5f60718293")
+`products` writes and `pricing-matrix`; `delivery-offers` (transport); `sold-upgrades`; `rto-agreements`; order `signature-process`; `notes`; `audit`; `promo-codes`; `inventory-settings`, `inventory/adjustments`, `inventory/transfers`; `service-tickets`; `stock-sale-requests` (Request for Sale); `catalog/templates`, `catalog/kits`; `communications` and customer conversations; `documents` uploads; `sales-returns`; `stock-reconciliations`; `cycle-counts`; `bank-accounts`, `bank-reconciliations`, `financial-statements`; `commissions`; `mrp`; `quality/ncrs`; `opportunities`; `warehouse-tasks`; `freight-bills`; `fixed-assets`; `analytics/exports`; `edi-maps`; `subscriptions`; `fx`; `consolidations`; `engineering-changes`.
 
-_, err = client.Leads.Update(ctx, lead.ID, partnerapi.LeadPatchRequest{
-	SalespersonName: "Alex Rep",
-	SalesLocation:   "66c00443c2d8aa83c5757dcf",
-})
+## Migrating from 0.x
 
-_, err = client.Orders.UpdateStatus(ctx, orderID, partnerapi.StatusUpdateRequest{
-	Status:            "On hold",
-	ActionDescription: "Waiting on customer financing",
-})
+v1.0.0 is a **major** release: it is not source-compatible with 0.x because the API behind it changed. Plan on reading every call site.
 
-// Create a quote from an in-stock unit: the serial number's work order is
-// linked to the new quote, the sales location is assigned, and lead routing
-// auto-assigns a salesperson when the location has routing configured.
-quote, err := client.Quotes.Create(ctx, partnerapi.QuoteCreateRequest{
-	SerialNumber: "SC-2024-00123",
-	Customer: partnerapi.QuoteCreateCustomer{
-		Name:  "Jane Doe",
-		Email: "jane@example.com",
-		Phone: "555-0100",
-	},
-	DeliveryAddress: &partnerapi.QuoteCreateDeliveryAddress{
-		Address: "42 Oak Ave",
-		City:    "Dallas",
-		State:   "TX",
-		ZipCode: "75201",
-	},
-})
+### Global changes
 
-// Create a lead: when no salesperson is given, the location's lead-routing
-// strategy (round-robin, availability, skill-based) auto-assigns one.
-newLead, err := client.Leads.Create(ctx, partnerapi.LeadCreateRequest{
-	LocationID: "66c00443c2d8aa83c5757dcf",
-	Customer:   partnerapi.LeadCreateCustomer{Name: "Jane Doe", Email: "jane@example.com"},
-})
+| Area | 0.x (Legacy) | 1.0 (ERP) |
+|---|---|---|
+| Host | built in (`Environment`, `HostProduction`, `HostSandbox`) | **`BaseURL` required**; `Environment*`, `Host*`, `DefaultBaseURL` removed; `ResolveBaseURL(baseURL)` has one argument |
+| JSON | camelCase | **snake_case** (`SiteEvents.Track` already was) |
+| Money | `float64` | **decimal `string`** |
+| Lists | `PaginatedResponse[T]{Data, Page, Limit, Total}`, `PaginationParams{Limit, Offset…}`, `Sort/Order` | `Page[T]{Items, Pagination}`, `ListParams{Page, PageSize, Q}`; no generic sort |
+| Errors | legacy body | `{error, code, message}`: `Error.Message` = plain `message` (else `error`), `Error.Code` = `code`; new `IsConflict`, `IsUnprocessable` |
+| OAuth | HTTP Basic client auth | `client_id`/`client_secret` as **form fields** |
+| Concurrency | `WithIfMatch(version)` | **removed** (the ERP does not document `If-Match`) |
+| Webhooks | `X-ShedCloud-Event-Id` / `-Event-Type`, `EventItem` body | `WebhookEventHeader` (`X-ShedCloud-Event`), `WebhookDeliveryHeader` (`X-ShedCloud-Delivery`), `WebhookEvent` body; signature scheme unchanged (`VerifyWebhookSignature`) |
+| Scopes | 32 constants | the ERP catalog (91). Every 0.x scope still exists; new ones include `ScopeLotStockWrite`, `ScopePricingRead` |
+| Types | `LotStockItem`, `QuoteItem`, `OrderItem`, `WorkOrderItem`, `LeadItem`, `CustomerItem`, … | `StockUnit`, `Quote`, `Order`, `WorkOrder`, `Lead`, `Customer`, … (all fields re-modelled from the ERP) |
 
-// Convert a quote to a sales order (requires partner-api.orders.write).
-// The new order starts in "Unsubmitted" — submit with UpdateStatus.
-order, err := client.Quotes.Convert(ctx, quote.ID, partnerapi.QuoteConvertRequest{})
+### Per resource
 
-// Revenue / forecast KPIs for last month (requires partner-api.revenue-forecast.read).
-// Optional details attach WO + related order rows; amount matches Sales Ledger.
-details := true
-forecast, err := client.RevenueForecast.Get(ctx, partnerapi.RevenueForecastParams{
-	Period:     partnerapi.PeriodLastMonth,
-	Details:    &details,
-	DetailsFor: "actual",
-})
-_ = forecast
-
-// Or create a full order directly: customer + location + base product
-// (model + size), upgrades, and an optional configurator payload.
-basePrice := 8995.0
-fullOrder, err := client.Orders.Create(ctx, partnerapi.OrderCreateRequest{
-	Customer:   &partnerapi.QuoteCreateCustomer{Name: "Jane Doe", Email: "jane@example.com"},
-	LocationID: "66c00443c2d8aa83c5757dcf",
-	ProductID:  "6659f3ab8e5a2c001f9b1c11",
-	SizeID:     "6659f3ab8e5a2c001f9b1c22",
-	BasePrice:  &basePrice,
-	Upgrades:   []partnerapi.OrderCreateLineItem{{ProductID: "6659f3ab8e5a2c001f9b1c33", Quantity: 2}},
-	Configuration: &partnerapi.OrderCreateConfiguration{
-		SidingColor: "Barn Red", RoofMaterial: "Metal Roof", RoofColor: "Charcoal",
-	},
-}, partnerapi.WithIdempotencyKey(uuid.NewString()))
-
-// Manage upgrade lines afterward (idempotent on LineKey); the base product
-// line is protected. Update pricing fields yourself after changing lines.
-line, err := client.Orders.AddLineItem(ctx, fullOrder.ID, partnerapi.LineItemCreateRequest{
-	ProductID: "6659f3ab8e5a2c001f9b1c44",
-	LineKey:   "crm-line-42",
-})
-err = client.Orders.DeleteLineItem(ctx, fullOrder.ID, line.LineID)
-
-// Create a manufacturing work order (portal building-wizard parity): status
-// starts in "Customer Care", the number is allocated automatically, and an
-// optional SizeID attaches the product.
-workOrder, err := client.WorkOrders.Create(ctx, partnerapi.WorkOrderCreateRequest{
-	LocationID:    "dallas-lot",
-	PurchaseType:  "new-build",
-	WorkOrderType: "made-to-order",
-	DeliveryType:  "delivery-from-factory",
-	SerialNumber:  "SC-2026-00999",
-	SizeID:        "6659f3ab8e5a2c001f9b1c22",
-}, partnerapi.WithIdempotencyKey(uuid.NewString()))
-
-// Record a manual payment (cash | check | financed | manual) — runs the
-// portal's own pipeline: payment record + order-balance recalc + audit.
-// Card/ACH are rejected; use payment links for those.
-payment, err := client.Orders.CreatePayment(ctx, fullOrder.ID, partnerapi.PaymentCreateRequest{
-	Method: "check", Amount: 500, CheckNumber: "1042",
-}, partnerapi.WithIdempotencyKey(uuid.NewString()))
-
-// Or send the customer a Stripe Checkout link (requires the company's
-// Stripe integration): the webhook records the payment when they pay.
-sendEmail := true
-link, err := client.Orders.CreatePaymentLink(ctx, fullOrder.ID, partnerapi.PaymentLinkCreateRequest{
-	Amount: 250, SendEmail: &sendEmail,
-})
-fmt.Println(link.URL, link.ExpiresAt)
-
-// Create a company user: discover roles first, then create with the role,
-// locations, and invite email. The user's login is created at their first
-// sign-in via the invite (no Cognito account is made here).
-roles, err := client.Users.Roles(ctx)
-newUser, err := client.Users.Create(ctx, partnerapi.UserCreateRequest{
-	FirstName:   "Alex",
-	LastName:    "Rep",
-	Email:       "alex@example.com",
-	RoleID:      roles.Data[0].ID,
-	LocationIDs: []string{"66c00443c2d8aa83c5757dcf"},
-}, partnerapi.WithIdempotencyKey(uuid.NewString()))
-// Deactivate later (the company owner is protected).
-inactive := false
-_, err = client.Users.Update(ctx, newUser.ID, partnerapi.UserPatchRequest{Active: &inactive})
-
-// All create/convert methods accept an idempotency key: a retried request
-// with the same key replays the stored response instead of duplicating.
-_, err = client.Quotes.Create(ctx, req, partnerapi.WithIdempotencyKey(uuid.NewString()))
-
-// Stamp your own correlation ids on records; filter lists by them later.
-crmID := "deal-42"
-_, err = client.Orders.Update(ctx, order.ID, partnerapi.OrderPatchRequest{
-	ExternalRefs: partnerapi.ExternalReferencesPatch{"crmDealId": &crmID},
-})
-matches, err := client.Orders.List(ctx, partnerapi.OrderListParams{
-	SalesListParams: partnerapi.SalesListParams{ExternalRef: "crmDealId:deal-42"},
-})
-
-// Optimistic concurrency: send the version you read as If-Match — the server
-// answers 409 Conflict if someone else wrote in between.
-_, err = client.Orders.Update(ctx, order.ID,
-	partnerapi.OrderPatchRequest{CustomerPhone: "555-0100"},
-	partnerapi.WithIfMatch(order.Version))
-
-// Consume the change feed losslessly with a stored cursor.
-err = client.Events.Each(ctx, partnerapi.EventListParams{Cursor: lastSeen},
-	func(ev partnerapi.EventItem) error {
-		lastSeen = ev.ID
-		return handle(ev)
-	})
-
-// Catalog products: create a model, then give it real pricing via sizes.
-product, err := client.Products.Create(ctx, partnerapi.ProductCreateRequest{
-	Name: "10x16 Lofted Barn", SKU: "LB-1016",
-}, partnerapi.WithIdempotencyKey(uuid.NewString()))
-_, err = client.Products.CreateSize(ctx, product.ID, partnerapi.ProductSizeCreateRequest{
-	Width: 10, Length: 16, Price: 8200,
-})
-
-// Per-location sales budgets: one record per company, location, and year.
-budget, err := client.LocationBudgets.Create(ctx, partnerapi.LocationBudgetUpsertRequest{
-	LocationID:   "66c00443c2d8aa83c5757dcf",
-	Year:         2026,
-	AnnualBudget: 1200000,
-	January:      85000,
-	February:     90000,
-}, partnerapi.WithIdempotencyKey(uuid.NewString()))
-budgets, err := client.LocationBudgets.List(ctx, partnerapi.LocationBudgetListParams{Year: 2026})
-_, err = client.LocationBudgets.Update(ctx, budget.ID, partnerapi.LocationBudgetUpsertRequest{
-	LocationID: budget.LocationID,
-	Year:       budget.Year,
-	March:      100000,
-})
-
-// White-label storefront domains: find each location's primary storefront.
-defaultOnly := true
-domains, err := client.Domains.List(ctx, partnerapi.DomainListParams{
-	DefaultForStore: &defaultOnly,
-})
-storeDomains, err := client.Domains.ForLocation(ctx, "66c00443c2d8aa83c5757dcf",
-	partnerapi.LocationDomainListParams{})
-```
+| 0.x | 1.0 |
+|---|---|
+| `LotStock.List` | `StockUnits.List` (`/stock-units`). Filters: `Origin`, `Statuses`, `SourceWorkOrderID`, `IncludeExpired`, `IncludeReceived`. Sold units past their window and `received` units are hidden by default. Typed photo galleries (`FrontImages`…) are gone from the unit; use `Documents` |
+| `Quotes.Convert` | `Quotes.Sell` (`POST /quotes/{id}/sell`, scope `orders.write`); the order id is `Quote.ConvertedOrderID` |
+| `Quotes/Orders.AddLineItem`, `DeleteLineItem`, `LineItems` | `ReplaceLines` (`PUT …/lines`, one item in v1) and `UpdateLineBuild`; lines come inside `Get` |
+| `Quotes/Orders/WorkOrders/Leads.StatusHistory` (paginated) | quotes/orders: `Events` (not paginated); work orders and leads: `StatusHistory` returns a slice |
+| `UpdateStatus` (`POST`) | `PATCH …/status` (quotes also take a reason: `UpdateStatus(ctx, id, status, reason)`) |
+| `Quotes.Create` body (nested customer, delivery address, line items) | `QuoteCreateRequest{StoreLocationID, DealType, …}` then `ReplaceLines` and `SetCustomer`; the reply `QuoteCreated` carries `ViewURL` and the one-time `ShareToken`. `ViewURL` is **not** on get/list any more (`HasShareToken` only) |
+| `OrderPatchRequest{SaleDate, SoldPricing}`, `OrderItem.Cancelled` | `sale_date` is read-only; ledger state is `Order.LedgerBooked`, `LedgerAmount`, `LedgerCancelled`. Sold pricing detail lives in `SalesLedger.Report` |
+| `Orders.Payments`, `Orders.CreatePayment` | `Customers.CreatePayment` / `Customers.Payments` and `Payments.List` with `ReferenceType: "order"`, `ReferenceID` |
+| `Orders.CreatePaymentLink` | **removed** (no ERP equivalent) |
+| `Orders.Contract` (summary) | `Orders.Contract` returns signature / contract-PDF status; PDF bytes are staff-only |
+| `SalesLedger.List` (`GET`, `SaleDateFrom`…, `Cancelled`, status) | `SalesLedger.Report` (`POST`) with `SalesLedgerRequest{LedgerFrom, LedgerTo, SaleFrom, SaleTo, StoreID, MovementMode, Q, IncludeSums}`; rows are ledger movements (`Delta*`, `New*`) |
+| `RevenueForecast.Get` (KPI blocks, week buckets, detail rows) | `RevenueForecast.Get` returns the ERP forecast strip `[{label, amount}]`; query params are camelCase (`locationIds`, `weekStart`…); `amount` is a JSON number |
+| `LocationBudgets` (`LocationBudgetUpsertRequest`) | `LocationBudgetRequest` with `Months []LocationBudgetMonth{Month, WeightPct, Amount, WeeklyAmount, LeadTarget}` |
+| `SiteEvents.Track` | unchanged envelope; `Delivery` / `Payment` blocks removed (use `Payload`); new `EventID`, `UserID`, `LocationID`. `List` has no cursor; `Each` removed |
+| `Leads.Create` (location routing) | `LeadCreateRequest` is flat; new `Assign`, `Convert` |
+| `Customers.Merge` | **removed** (no ERP equivalent) |
+| `StockTemplates`, BOM `dimension-variables`, `Products.CreateSize` | **removed**: no confirmed ERP equivalent (`catalog/templates` browses ShedCloud catalog templates, which is a different thing) |
+| `Products.Create/Update` | **removed for now**: the ERP has product writes (`partner-api.products.write`) but they are not wrapped yet (pending list) |
+| `Client.Me` (company + rate-limit blocks) | `MeResponse{TenantID, CredentialID, Kind, Scopes}`; use `Company.Get` for the company |
+| `Domains.List`, `Domains.ForLocation` | `Domains.List` and `Locations.Domains` return `[]Storefront` (not paginated) |
+| `Agreements.Active()` (one item) | `Agreements.Active(params)` returns a `Page[Agreement]` |
+| `Users.Create` | `Users.Invite` (`POST /users` invites by email) |
+| `Events.List`, `Events.Redeliver`, `Events.Deliveries` | same routes, ERP shapes (`Event`, `WebhookDelivery`, `EventRedeliverResponse`); `List` returns a slice (`After` + `Limit`), `Each` removed |
 
 ## Webhooks
 
-Verify webhook deliveries with the subscription secret (shown once when the webhook is created in Settings → Developer API). Always verify against the **raw** request body:
+Verify deliveries with the subscription secret (Settings → Developer API). Always verify the **raw** request body. Deliveries are at-least-once: dedupe on the `X-ShedCloud-Delivery` header and the event `id`.
 
 ```go
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(r.Body)
-	err := partnerapi.VerifyWebhookSignature(
+	if err := partnerapi.VerifyWebhookSignature(
 		os.Getenv("SHEDCLOUD_WEBHOOK_SECRET"),
-		r.Header.Get(partnerapi.WebhookSignatureHeader),
-		body, 0)
-	if err != nil {
+		r.Header.Get(partnerapi.WebhookSignatureHeader), body, 0); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	var event partnerapi.EventItem
-	_ = json.Unmarshal(body, &event)
-	w.WriteHeader(http.StatusOK) // ack fast; process async and dedupe by event.ID
+	var ev partnerapi.WebhookEvent // id, entity_type, entity_id, action, occurred_at, payload
+	_ = json.Unmarshal(body, &ev)
+	w.WriteHeader(http.StatusOK) // ack fast; process async
 }
 ```
 
 ## Errors
 
-Failed responses return `*partnerapi.Error` (or `*partnerapi.AuthError` for OAuth token failures):
-
 ```go
 _, err := client.Orders.Get(ctx, id)
-if apiErr, ok := err.(*partnerapi.Error); ok {
-	fmt.Println(apiErr.Status, apiErr.Message, apiErr.Body)
-	// apiErr.IsUnauthorized() / IsForbidden() / IsNotFound() / IsRateLimited()
+var apiErr *partnerapi.Error
+if errors.As(err, &apiErr) {
+	fmt.Println(apiErr.Status, apiErr.Code, apiErr.Message)
+	// IsUnauthorized / IsForbidden / IsNotFound / IsConflict / IsUnprocessable / IsRateLimited
+	// apiErr.Body keeps the full response (for example violations[] on 422 configuration_rule_violation)
 }
 ```
 
+OAuth token failures return `*partnerapi.AuthError`.
+
 ## Scopes
 
-```go
-partnerapi.ScopeLotStockRead         // partner-api.lot-stock.read
-partnerapi.ScopeLocationBudgetsRead  // partner-api.location-budgets.read
-partnerapi.ScopeLocationBudgetsWrite // partner-api.location-budgets.write
-partnerapi.ScopeSalesLedgerRead      // partner-api.sales-ledger.read
-partnerapi.ScopeRevenueForecastRead  // partner-api.revenue-forecast.read
-partnerapi.ScopeOrdersWrite          // partner-api.orders.write
-```
+`partnerapi.AllScopes` is the full ERP catalog and each scope has a constant (`ScopeLotStockRead`, `ScopeLotStockWrite`, `ScopeQuotesWrite`, `ScopeOrdersWrite` — needed by `Quotes.Sell` —, `ScopeSalesLedgerRead`, …). `client.Me(ctx)` lists what your credential holds; `partnerapi.HasScope(me.Scopes, scope)` checks one.
 
 ## Development
 
@@ -340,26 +206,15 @@ go test ./...
 go vet ./...
 ```
 
-## Versioning & changelog
+## Versioning
 
-The Partner API is **additive-only within `/partner/v1`** — new endpoints and
-fields may appear, but existing response fields are never renamed, retyped, or
-removed. This module is tagged with semver in lockstep with API additions: new
-API capabilities arrive as **minor** releases, fixes as **patches**. Pinning
-an older version is always safe; it simply won't surface newer fields.
-
-- API changes: [hosted changelog](https://go.shedcloud.com/partner/reference#changelog)
+v1.x follows the ERP Partner API, which is additive within `/partner/v1`. Breaking SDK changes need a new major version. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Related SDKs
 
-- TypeScript/JavaScript: [`@shedcloud/partner-api`](https://www.npmjs.com/package/@shedcloud/partner-api)
-- Python: [`shedcloud-partner-api`](https://pypi.org/project/shedcloud-partner-api/)
-- PHP: [`shedcloud/partner-api`](https://github.com/Corland-Partners-LLC/shedcloud-php)
-- Ruby: [`shedcloud-partner_api`](https://rubygems.org/gems/shedcloud-partner_api)
+The npm, PyPI, PHP and Ruby SDKs still target the **Legacy** API at the time of v1.0.0 and will be aligned to the ERP separately.
 
 ## Docs
 
-- Partner API reference: https://go.shedcloud.com/partner/reference
-- API changelog: https://go.shedcloud.com/partner/reference#changelog
-- Backend source of truth: `shedcloud-api-go/docs/PARTNER_API.md`
+- ERP Partner API: `docs/partner/openapi.yaml`, `PARTNER_API.md`, `PARTNER_AUTH.md` in `shedcloud-erp-api` (also served by the API under `/partner/reference`)
 - This module on pkg.go.dev: [`partnerapi`](https://pkg.go.dev/github.com/Corland-Partners-LLC/shedcloud-gomod/partnerapi)

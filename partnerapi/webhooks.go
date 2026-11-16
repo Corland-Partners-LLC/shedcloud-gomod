@@ -23,12 +23,23 @@ import (
 // WebhookSignatureHeader carries the signature on every webhook delivery.
 const WebhookSignatureHeader = "X-ShedCloud-Signature"
 
-// WebhookEventIDHeader / WebhookEventTypeHeader accompany every delivery for
-// cheap dedupe before parsing the body.
+// WebhookEventHeader carries "entity_type.action" (for example "quote.sold")
+// and WebhookDeliveryHeader the delivery id on every delivery. Deliveries are
+// at-least-once: dedupe on WebhookDeliveryHeader and the event "id".
 const (
-	WebhookEventIDHeader   = "X-ShedCloud-Event-Id"
-	WebhookEventTypeHeader = "X-ShedCloud-Event-Type"
+	WebhookEventHeader    = "X-ShedCloud-Event"
+	WebhookDeliveryHeader = "X-ShedCloud-Delivery"
 )
+
+// WebhookEvent is the signed JSON body of a delivery.
+type WebhookEvent struct {
+	ID         string         `json:"id"`
+	EntityType string         `json:"entity_type"`
+	EntityID   string         `json:"entity_id"`
+	Action     string         `json:"action"`
+	OccurredAt time.Time      `json:"occurred_at"`
+	Payload    map[string]any `json:"payload,omitempty"`
+}
 
 // DefaultWebhookTolerance is the maximum accepted signature age when
 // VerifyWebhookSignature is called with tolerance <= 0.

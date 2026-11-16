@@ -7,15 +7,15 @@ import (
 	"time"
 )
 
-// Client is the official Go client for the ShedCloud Partner API.
+// Client is the official Go client for the ShedCloud ERP Partner API.
 //
 //	client, err := partnerapi.New(partnerapi.Options{
-//		Auth: partnerapi.Auth{APIKey: os.Getenv("SHEDCLOUD_API_KEY")},
+//		BaseURL: os.Getenv("SHEDCLOUD_BASE_URL"),
+//		Auth:    partnerapi.Auth{APIKey: os.Getenv("SHEDCLOUD_API_KEY")},
 //	})
-//	stock, err := client.LotStock.List(ctx, partnerapi.LotStockListParams{Limit: 50})
+//	page, err := client.StockUnits.List(ctx, partnerapi.StockUnitListParams{})
 type Client struct {
-	LotStock             *LotStockService
-	StockTemplates       *StockTemplatesService
+	StockUnits           *StockUnitsService
 	Leads                *LeadsService
 	Quotes               *QuotesService
 	Orders               *OrdersService
@@ -45,11 +45,9 @@ type Client struct {
 
 // Options configures a Partner API Client.
 type Options struct {
-	// Environment selects a built-in host. Defaults to production.
-	// Ignored when BaseURL is set.
-	Environment Environment
-	// BaseURL overrides the host (trailing slashes stripped). Prefer Environment
-	// unless you need a custom/local host.
+	// BaseURL is the ERP Partner API host, required (trailing slashes are
+	// stripped). The ERP docs publish no fixed production or sandbox host, so
+	// the SDK has none built in.
 	BaseURL string
 	// Auth is required. Set APIKey or ClientID+ClientSecret.
 	Auth Auth
@@ -66,11 +64,14 @@ type Options struct {
 
 // New builds a Partner API client.
 func New(opts Options) (*Client, error) {
+	baseURL := ResolveBaseURL(opts.BaseURL)
+	if baseURL == "" {
+		return nil, ErrBaseURLRequired
+	}
 	if err := opts.Auth.validate(); err != nil {
 		return nil, err
 	}
 
-	baseURL := ResolveBaseURL(opts.BaseURL, opts.Environment)
 	httpClientImpl := opts.HTTPClient
 	if httpClientImpl == nil {
 		httpClientImpl = &http.Client{}
@@ -104,11 +105,10 @@ func New(opts Options) (*Client, error) {
 		auth:    auth,
 		http:    hc,
 	}
-	c.LotStock = &LotStockService{c: c}
-	c.StockTemplates = &StockTemplatesService{c: c}
+	c.StockUnits = &StockUnitsService{c: c}
 	c.Leads = &LeadsService{c: c}
-	c.Quotes = &QuotesService{c: c}
-	c.Orders = &OrdersService{c: c}
+	c.Quotes = newQuotesService(c)
+	c.Orders = newOrdersService(c)
 	c.WorkOrders = &WorkOrdersService{c: c}
 	c.Locations = &LocationsService{c: c}
 	c.LocationBudgets = &LocationBudgetsService{c: c}

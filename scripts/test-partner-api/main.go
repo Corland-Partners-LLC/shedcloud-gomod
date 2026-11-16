@@ -1,16 +1,14 @@
-// Smoke-test the Partner API Go client with your API key.
+// Smoke-test the Partner API Go client against an ERP host.
 //
 // Usage:
 //
-//	go run ./scripts/test-partner-api -api-key sc_live_...
-//	# or
-//	$env:SHEDCLOUD_API_KEY="sc_live_..."; go run ./scripts/test-partner-api
+//	go run ./scripts/test-partner-api -base-url https://<erp-host> -api-key sc_live_...
 //
-// Optional flags:
+// The ERP host is required (it is not built in). Flags:
 //
-//	-base-url   override host (default: production https://go.shedcloud.com)
-//	-sandbox    use sandbox host
-//	-resource   lot-stock | leads | quotes | orders | work-orders | locations | customers | products (default: lot-stock)
+//	-base-url   ERP Partner API host (or SHEDCLOUD_BASE_URL)
+//	-api-key    API key (or SHEDCLOUD_API_KEY)
+//	-resource   stock-units | leads | quotes | orders | work-orders | locations | customers | products (default: stock-units)
 //	-limit      page size (default: 5)
 package main
 
@@ -26,170 +24,84 @@ import (
 )
 
 func main() {
-	apiKey := flag.String("api-key", os.Getenv("SHEDCLOUD_API_KEY"), "Partner API key (sc_live_…); or set SHEDCLOUD_API_KEY")
-	baseURL := flag.String("base-url", os.Getenv("SHEDCLOUD_BASE_URL"), "API host override (optional)")
-	sandbox := flag.Bool("sandbox", false, "Use sandbox host (api.shedcloudtest.com)")
-	resource := flag.String("resource", "lot-stock", "Resource to call: lot-stock | leads | quotes | orders | work-orders | locations | customers | products")
+	apiKey := flag.String("api-key", os.Getenv("SHEDCLOUD_API_KEY"), "Partner API key (sc_live_…)")
+	baseURL := flag.String("base-url", os.Getenv("SHEDCLOUD_BASE_URL"), "ERP Partner API host (required)")
+	resource := flag.String("resource", "stock-units", "stock-units | leads | quotes | orders | work-orders | locations | customers | products")
 	limit := flag.Int("limit", 5, "Page size")
 	flag.Parse()
 
-	key := strings.TrimSpace(*apiKey)
-	if key == "" {
-		fmt.Fprintln(os.Stderr, "ERROR: pass -api-key or set SHEDCLOUD_API_KEY")
+	if strings.TrimSpace(*apiKey) == "" || strings.TrimSpace(*baseURL) == "" {
+		fmt.Fprintln(os.Stderr, "ERROR: pass -base-url and -api-key (or SHEDCLOUD_BASE_URL / SHEDCLOUD_API_KEY)")
 		os.Exit(1)
 	}
-	if !strings.HasPrefix(key, "sc_live_") {
-		fmt.Fprintln(os.Stderr, "WARNING: API keys normally start with sc_live_ — continuing anyway")
-	}
-
-	opts := partnerapi.Options{
-		Auth: partnerapi.Auth{APIKey: key},
-	}
-	if u := strings.TrimSpace(*baseURL); u != "" {
-		opts.BaseURL = u
-	} else if *sandbox {
-		opts.Environment = partnerapi.EnvironmentSandbox
-	}
-
-	client, err := partnerapi.New(opts)
+	client, err := partnerapi.New(partnerapi.Options{
+		BaseURL: *baseURL,
+		Auth:    partnerapi.Auth{APIKey: strings.TrimSpace(*apiKey)},
+	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "client init failed: %v\n", err)
-		os.Exit(1)
+		fail(err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	fmt.Println("Partner API Go client smoke test")
-	fmt.Printf("  Host     : %s\n", client.BaseURL)
-	fmt.Printf("  Resource : %s\n", *resource)
-	fmt.Printf("  Key      : %s...\n", truncate(key, 16))
-	fmt.Println(strings.Repeat("-", 60))
+	me, err := client.Me(ctx)
+	if err != nil {
+		fail(err)
+	}
+	fmt.Printf("credential %s (%s), %d scopes\n", me.CredentialID, me.Kind, len(me.Scopes))
 
-	start := time.Now()
-	switch strings.ToLower(strings.TrimSpace(*resource)) {
-	case "lot-stock", "lotstock":
-		res, err := client.LotStock.List(ctx, partnerapi.LotStockListParams{
-			PaginationParams: partnerapi.PaginationParams{Limit: *limit},
-			PurchaseType:     "Lot Stock",
-		})
-		must(err)
-		printList("lot-stock", res.Page, res.Limit, res.Total, len(res.Data), start)
-		if len(res.Data) > 0 {
-			item := res.Data[0]
-			fmt.Printf("  first: %s | %s | %s | $%.2f | %s\n",
-				item.SerialNumber, item.Title, item.PurchaseType, item.Price, item.LocationName)
-		}
+	lp := partnerapi.ListParams{PageSize: *limit}
+	var n int
+	var total int64
+	switch *resource {
+	case "stock-units":
+		p, e := client.StockUnits.List(ctx, partnerapi.StockUnitListParams{ListParams: lp})
+		err, n, total = e, countOf(p), totalOf(p)
 	case "leads":
-		res, err := client.Leads.List(ctx, partnerapi.SalesListParams{
-			PaginationParams: partnerapi.PaginationParams{Limit: *limit},
-		})
-		must(err)
-		printList("leads", res.Page, res.Limit, res.Total, len(res.Data), start)
-		if len(res.Data) > 0 {
-			item := res.Data[0]
-			fmt.Printf("  first: #%d | %s | %s | %s\n",
-				item.OrderNumber, item.Status, item.Customer.Name, item.Customer.Email)
-		}
+		p, e := client.Leads.List(ctx, partnerapi.LeadListParams{ListParams: lp})
+		err, n, total = e, countOf(p), totalOf(p)
 	case "quotes":
-		res, err := client.Quotes.List(ctx, partnerapi.QuoteListParams{
-			SalesListParams: partnerapi.SalesListParams{
-				PaginationParams: partnerapi.PaginationParams{Limit: *limit},
-			},
-		})
-		must(err)
-		printList("quotes", res.Page, res.Limit, res.Total, len(res.Data), start)
-		if len(res.Data) > 0 {
-			item := res.Data[0]
-			fmt.Printf("  first: #%d | %s | total=$%.2f | serial=%s | converted=%v\n",
-				item.OrderNumber, item.Status, item.Pricing.Total, item.SerialNumber, item.Converted)
-		}
+		p, e := client.Quotes.List(ctx, partnerapi.QuoteListParams{ListParams: lp})
+		err, n, total = e, countOf(p), totalOf(p)
 	case "orders":
-		res, err := client.Orders.List(ctx, partnerapi.OrderListParams{
-			SalesListParams: partnerapi.SalesListParams{
-				PaginationParams: partnerapi.PaginationParams{Limit: *limit},
-			},
-		})
-		must(err)
-		printList("orders", res.Page, res.Limit, res.Total, len(res.Data), start)
-		if len(res.Data) > 0 {
-			item := res.Data[0]
-			fmt.Printf("  first: #%d | %s | total=$%.2f | serial=%s\n",
-				item.OrderNumber, item.Status, item.Pricing.Total, item.SerialNumber)
-		}
-	case "work-orders", "workorders", "wo":
-		res, err := client.WorkOrders.List(ctx, partnerapi.WorkOrderListParams{
-			PaginationParams: partnerapi.PaginationParams{Limit: *limit},
-		})
-		must(err)
-		printList("work-orders", res.Page, res.Limit, res.Total, len(res.Data), start)
-		if len(res.Data) > 0 {
-			item := res.Data[0]
-			fmt.Printf("  first: WO#%d | %s | %s | order=#%d\n",
-				item.WorkOrderNumber, item.SerialNumber, item.Status, item.OrderNumber)
-		}
+		p, e := client.Orders.List(ctx, partnerapi.OrderListParams{ListParams: lp})
+		err, n, total = e, countOf(p), totalOf(p)
+	case "work-orders":
+		p, e := client.WorkOrders.List(ctx, partnerapi.WorkOrderListParams{ListParams: lp})
+		err, n, total = e, countOf(p), totalOf(p)
 	case "locations":
-		res, err := client.Locations.List(ctx, partnerapi.LocationListParams{
-			PaginationParams: partnerapi.PaginationParams{Limit: *limit},
-		})
-		must(err)
-		printList("locations", res.Page, res.Limit, res.Total, len(res.Data), start)
-		if len(res.Data) > 0 {
-			item := res.Data[0]
-			fmt.Printf("  first: %s | code=%s | %s, %s | active=%v salesLot=%v plant=%v\n",
-				item.Name, item.Code, item.City, item.State, item.Active, item.SalesLot, item.Plant)
-		}
+		p, e := client.Locations.List(ctx, partnerapi.LocationListParams{ListParams: lp})
+		err, n, total = e, countOf(p), totalOf(p)
 	case "customers":
-		res, err := client.Customers.List(ctx, partnerapi.CustomerListParams{
-			PaginationParams: partnerapi.PaginationParams{Limit: *limit},
-		})
-		must(err)
-		printList("customers", res.Page, res.Limit, res.Total, len(res.Data), start)
-		if len(res.Data) > 0 {
-			item := res.Data[0]
-			fmt.Printf("  first: %s | %s | %s | active=%v\n",
-				item.Name, item.Email, item.Phone, item.Active)
-		}
+		p, e := client.Customers.List(ctx, partnerapi.CustomerListParams{ListParams: lp})
+		err, n, total = e, countOf(p), totalOf(p)
 	case "products":
-		res, err := client.Products.List(ctx, partnerapi.ProductListParams{
-			PaginationParams: partnerapi.PaginationParams{Limit: *limit},
-		})
-		must(err)
-		printList("products", res.Page, res.Limit, res.Total, len(res.Data), start)
-		if len(res.Data) > 0 {
-			item := res.Data[0]
-			fmt.Printf("  first: %s | sku=%s | $%.2f | %gx%g | active=%v\n",
-				item.Name, item.SKU, item.Price, item.Width, item.Length, item.Active)
-		}
+		p, e := client.Products.List(ctx, partnerapi.ProductListParams{ListParams: lp})
+		err, n, total = e, countOf(p), totalOf(p)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown -resource %q (use lot-stock|leads|quotes|orders|work-orders|locations|customers|products)\n", *resource)
-		os.Exit(1)
+		fail(fmt.Errorf("unknown -resource %q", *resource))
 	}
-
-	fmt.Println(strings.Repeat("-", 60))
-	fmt.Println("Done.")
+	if err != nil {
+		fail(err)
+	}
+	fmt.Printf("%s: %d returned, %d total\n", *resource, n, total)
 }
 
-func printList(name string, page, limit int, total int64, returned int, start time.Time) {
-	fmt.Printf(">> %s list OK  (%d ms)\n", name, time.Since(start).Milliseconds())
-	fmt.Printf("   total=%d  page=%d  limit=%d  returned=%d\n", total, page, limit, returned)
+func countOf[T any](p *partnerapi.Page[T]) int {
+	if p == nil {
+		return 0
+	}
+	return len(p.Items)
 }
 
-func must(err error) {
-	if err == nil {
-		return
+func totalOf[T any](p *partnerapi.Page[T]) int64 {
+	if p == nil {
+		return 0
 	}
-	if apiErr, ok := err.(*partnerapi.Error); ok {
-		fmt.Fprintf(os.Stderr, "FAIL HTTP %d: %s\n", apiErr.Status, apiErr.Message)
-		os.Exit(1)
-	}
-	fmt.Fprintf(os.Stderr, "FAIL: %v\n", err)
+	return p.Pagination.Total
+}
+
+func fail(err error) {
+	fmt.Fprintln(os.Stderr, "ERROR:", err)
 	os.Exit(1)
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n]
 }
