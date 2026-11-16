@@ -64,7 +64,6 @@ schemas, so response types were modelled from the handler/domain structs.
   rate-limit block).
 - **Removed, no ERP equivalent:** `Customers.Merge`, `Orders.CreatePaymentLink`,
   `StockTemplates`, BOM `dimension-variables`, `Products.CreateSize`.
-  **Removed for now:** `Products.Create/Update` (ERP has them; pending).
 - Renames: `Users.Create` → `Users.Invite`; `Domains.ForLocation` →
   `Locations.Domains`; `Agreements.Active()` now returns a page; `Events.Each`
   removed.
@@ -74,23 +73,28 @@ schemas, so response types were modelled from the handler/domain structs.
 - `Leads.Assign`, `Leads.Convert`; `Quotes`/`Orders` terms (cash and RTO
   preview/compute/set), mileage, tax, reprice preview/apply; `Orders.Contract`;
   `Customers.Ledger`; `Payments`; `Products.ResolvePrice`
-  (`/pricing/resolve`); `Locations.Domains`.
+  (`/pricing/resolve`); `Locations.Domains`; and every resource listed under
+  Full ERP coverage.
 
-### Not covered yet (pending, ERP resources)
+### Full ERP coverage
 
-Product writes and pricing matrix, delivery offers, sold upgrades, RTO
-agreements, order signature process, notes, audit, promo codes, inventory
-settings / adjustments / transfers, service tickets, Request for Sale,
-catalog templates and kits, communications, document uploads, sales returns,
-stock reconciliations, cycle counts, banking and financial statements,
-commissions, MRP, quality, opportunities, warehouse tasks, freight bills,
-fixed assets, analytics exports, EDI maps, subscriptions, FX, consolidations,
-engineering changes.
+All 214 operations (166 paths) of the ERP `/partner/v1` `openapi.yaml` have a method (see the
+Resources table in `README.md`), including products write and pricing matrix,
+catalog, promo codes, delivery offers, RTO agreements, order signature process,
+sold upgrades, inventory settings / adjustments / transfers, Request for Sale,
+sales returns, stock reconciliations, cycle counts, warehouse tasks, service
+tickets, notes, audit, communications, opportunities, document uploads,
+banking, financial statements, commissions, freight bills, fixed assets, FX,
+consolidations, subscriptions, MRP, quality, analytics exports, EDI maps and
+engineering changes. A route test pins method and path for each one.
 
 ### Notes
 
 - Where `PARTNER_API.md` examples disagree with the handler code, the SDK
   follows the code (customer ledger `net_balance`, sales ledger `rows`).
+- Some list responses have no `pagination` block in the ERP (service tickets,
+  promo codes, sale requests, catalog, banks…); those return slices or a zero
+  `Pagination`. Scope and filter details are in each method's doc comment.
 - Cash/RTO previews (`TermsPreview`) and `ResolvePrice` return generic maps;
   nested blobs (addresses, snapshots, work-order components, agreement
   schedules) stay `json.RawMessage`.

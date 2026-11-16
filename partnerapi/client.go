@@ -36,6 +36,37 @@ type Client struct {
 	SiteEvents           *SiteEventsService
 	ConfiguratorSessions *ConfiguratorSessionsService
 
+	Catalog              *CatalogService
+	PromoCodes           *PromoCodesService
+	DeliveryOffers       *DeliveryOffersService
+	RTOAgreements        *RTOAgreementsService
+	SoldUpgrades         *SoldUpgradesService
+	Inventory            *InventoryService
+	StockSaleRequests    *StockSaleRequestsService
+	SalesReturns         *SalesReturnsService
+	StockReconciliations *StockReconciliationsService
+	CycleCounts          *CycleCountsService
+	WarehouseTasks       *WarehouseTasksService
+	ServiceTickets       *ServiceTicketsService
+	Notes                *NotesService
+	Audit                *AuditService
+	Communications       *CommunicationsService
+	Opportunities        *OpportunitiesService
+	BankAccounts         *BankAccountsService
+	BankReconciliations  *BankReconciliationsService
+	FinancialStatements  *FinancialStatementsService
+	Commissions          *CommissionsService
+	FreightBills         *FreightBillsService
+	FixedAssets          *FixedAssetsService
+	FX                   *FXService
+	Consolidations       *ConsolidationsService
+	Subscriptions        *SubscriptionsService
+	MRP                  *MRPService
+	Quality              *QualityService
+	Analytics            *AnalyticsService
+	EDIMaps              *EDIMapsService
+	EngineeringChanges   *EngineeringChangesService
+
 	// BaseURL is the resolved API host used for all requests.
 	BaseURL string
 
@@ -125,6 +156,36 @@ func New(opts Options) (*Client, error) {
 	c.Events = &EventsService{c: c}
 	c.SiteEvents = &SiteEventsService{c: c}
 	c.ConfiguratorSessions = &ConfiguratorSessionsService{c: c}
+	c.Catalog = &CatalogService{c: c}
+	c.PromoCodes = &PromoCodesService{c: c}
+	c.DeliveryOffers = &DeliveryOffersService{c: c}
+	c.RTOAgreements = &RTOAgreementsService{c: c}
+	c.SoldUpgrades = &SoldUpgradesService{c: c}
+	c.Inventory = &InventoryService{c: c}
+	c.StockSaleRequests = &StockSaleRequestsService{c: c}
+	c.SalesReturns = &SalesReturnsService{c: c}
+	c.StockReconciliations = &StockReconciliationsService{c: c}
+	c.CycleCounts = &CycleCountsService{c: c}
+	c.WarehouseTasks = &WarehouseTasksService{c: c}
+	c.ServiceTickets = &ServiceTicketsService{c: c}
+	c.Notes = &NotesService{c: c}
+	c.Audit = &AuditService{c: c}
+	c.Communications = &CommunicationsService{c: c}
+	c.Opportunities = &OpportunitiesService{c: c}
+	c.BankAccounts = &BankAccountsService{c: c}
+	c.BankReconciliations = &BankReconciliationsService{c: c}
+	c.FinancialStatements = &FinancialStatementsService{c: c}
+	c.Commissions = &CommissionsService{c: c}
+	c.FreightBills = &FreightBillsService{c: c}
+	c.FixedAssets = &FixedAssetsService{c: c}
+	c.FX = &FXService{c: c}
+	c.Consolidations = &ConsolidationsService{c: c}
+	c.Subscriptions = &SubscriptionsService{c: c}
+	c.MRP = &MRPService{c: c}
+	c.Quality = &QualityService{c: c}
+	c.Analytics = &AnalyticsService{c: c}
+	c.EDIMaps = &EDIMapsService{c: c}
+	c.EngineeringChanges = &EngineeringChangesService{c: c}
 	return c, nil
 }
 

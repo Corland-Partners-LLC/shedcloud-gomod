@@ -92,7 +92,7 @@ order, _ := client.Orders.Get(ctx, sold.ConvertedOrderID)
 | `StockUnits` | `/stock-units` | replaces `LotStock`; List, Get, Create, RegisterReturn, Update, Release, PDF |
 | `Leads` | `/leads` | List, Get, Create, Update, UpdateStatus, Assign, Convert, StatusHistory |
 | `Quotes` | `/quotes` | List, Get, Create, Update, UpdateStatus, SetCustomer, ReplaceLines, UpdateLineBuild, cash/RTO terms (Preview/Compute/Set), ComputeMileage, ResolveTax, PreviewReprice, Reprice, **Sell**, Events |
-| `Orders` | `/orders` | same shared calls as Quotes (no Sell), plus UpdateStatus, Contract |
+| `Orders` | `/orders` | same shared calls as Quotes (no Sell), plus UpdateStatus, Contract and the signature process (SignatureProcess, StartSignature, SendSignature, CancelSignature, RestartSignature, RetryContractPDF) |
 | `WorkOrders` | `/work-orders` | List, Get, Create, Update, UpdateStatus, StatusHistory |
 | `LocationBudgets` | `/location-budgets` | List, Get, Create, Update (PUT) |
 | `SalesLedger` | `POST /sales-ledger` | `Report` |
@@ -101,19 +101,34 @@ order, _ := client.Orders.Get(ctx, sold.ConvertedOrderID)
 | `Customers` | `/customers` | List, Get, Create, Update, Payments, CreatePayment, Ledger |
 | `Payments` | `/payments` | List, Get |
 | `Locations` | `/locations` | List, Get, Create, Update, Domains |
-| `Products` | `/products`, `/pricing/resolve` | List, Get, ResolvePrice (read only) |
+| `Products` | `/products`, `/pricing/resolve` | List, Get, Create, Update, PricingMatrix, ResolvePrice |
 | `Agreements` | `/agreements` | List, Active, Get, ListStateLegal, GetStateLegal |
 | `Users` | `/users`, `/roles` | List, Get, Invite, Update, Roles |
 | `Domains` | `/domains` | List |
-| `Documents` | `/documents` | List (by entity), Download |
+| `Documents` | `/documents` | List (by entity), Download, UploadURL, Attach |
 | `Events` | `/events`, `/webhook-deliveries` | List, Deliveries, Redeliver |
 | `ConfiguratorSessions` | `/configurator-sessions` | Create |
+| `Catalog` | `/catalog/templates`, `/catalog/kits` | Templates, Template, Kits |
+| `PromoCodes` | `/promo-codes` | List, Create, Validate, Get, Update |
+| `DeliveryOffers` | `/delivery-offers`, `/work-orders/{id}/delivery-offers` | List, Create, Accept, Transition, SubmitPOD |
+| `RTOAgreements` | `/rto-agreements` | List, Create, Get, Activate |
+| `SoldUpgrades` | `POST /sold-upgrades` | Report |
+| `Inventory` | `/inventory-settings`, `/inventory/adjustments`, `/inventory/transfers` | settings get/update; adjustments and transfers: list, create, get, report |
+| `StockSaleRequests` | `/stock-units/{id}/sale-requests`, `/stock-sale-requests` | Request for Sale: Create, List, Resolve |
+| `SalesReturns`, `StockReconciliations`, `CycleCounts`, `WarehouseTasks` | `/sales-returns`, `/stock-reconciliations`, `/cycle-counts`, `/warehouse-tasks` | list, create, get |
+| `ServiceTickets` | `/service-tickets` | List, Get, Create, Update, UpdateStatus |
+| `Notes`, `Audit` | `/notes`, `/audit` | Notes: List, Create, Update, Delete; Audit: List |
+| `Communications` | `/communications/*`, customer conversations, messages | Settings, Numbers, Inbox, ListConversations, StartConversation, ListMessages, SendMessage |
+| `Opportunities` | `/opportunities` | List, Get, Create |
+| `BankAccounts`, `BankReconciliations`, `FinancialStatements` | `/bank-accounts`, `/bank-reconciliations`, `/financial-statements/*` | read only (ProfitAndLoss, BalanceSheet) |
+| `Commissions` | `/commissions/*` | Plans, Accruals |
+| `FreightBills`, `FixedAssets`, `Consolidations`, `Subscriptions` | `/freight-bills`, `/fixed-assets`, `/consolidations`, `/subscriptions` | List, Get, Create |
+| `FX` | `/fx/rates`, `/fx/convert` | Rates, UpsertRate, Convert |
+| `MRP`, `Quality`, `Analytics`, `EDIMaps`, `EngineeringChanges` | `/mrp/runs`, `/quality/ncrs`, `/analytics/exports`, `/edi-maps`, `/engineering-changes` | MRP: ListRuns, GetRun, Run; Quality: ListNCRs, GetNCR, CreateNCR; Analytics: ListExports, GetExport; EDIMaps and EngineeringChanges: List, Get, Create |
 
-### ERP resources the SDK does not cover yet
+### Coverage
 
-Available in the ERP Partner API (see its `openapi.yaml`) but **not wrapped here** — pending, not part of 1.0.0. Call them with your own `net/http` for now.
-
-`products` writes and `pricing-matrix`; `delivery-offers` (transport); `sold-upgrades`; `rto-agreements`; order `signature-process`; `notes`; `audit`; `promo-codes`; `inventory-settings`, `inventory/adjustments`, `inventory/transfers`; `service-tickets`; `stock-sale-requests` (Request for Sale); `catalog/templates`, `catalog/kits`; `communications` and customer conversations; `documents` uploads; `sales-returns`; `stock-reconciliations`; `cycle-counts`; `bank-accounts`, `bank-reconciliations`, `financial-statements`; `commissions`; `mrp`; `quality/ncrs`; `opportunities`; `warehouse-tasks`; `freight-bills`; `fixed-assets`; `analytics/exports`; `edi-maps`; `subscriptions`; `fx`; `consolidations`; `engineering-changes`.
+Every route of the ERP Partner API `openapi.yaml` (`/partner/v1/*`: 166 paths, 214 operations) has a method here, and `POST /oauth/token` is handled by the auth layer. The Cognito admin routes (`/v1/companies/{id}/partner-api/*`: API keys, OAuth clients, webhooks) are portal features, not part of this SDK.
 
 ## Migrating from 0.x
 
@@ -155,7 +170,7 @@ v1.0.0 is a **major** release: it is not source-compatible with 0.x because the 
 | `Leads.Create` (location routing) | `LeadCreateRequest` is flat; new `Assign`, `Convert` |
 | `Customers.Merge` | **removed** (no ERP equivalent) |
 | `StockTemplates`, BOM `dimension-variables`, `Products.CreateSize` | **removed**: no confirmed ERP equivalent (`catalog/templates` browses ShedCloud catalog templates, which is a different thing) |
-| `Products.Create/Update` | **removed for now**: the ERP has product writes (`partner-api.products.write`) but they are not wrapped yet (pending list) |
+| `Products.Create/Update` | kept: `POST /products`, `PATCH /products/{id}` with the ERP fields |
 | `Client.Me` (company + rate-limit blocks) | `MeResponse{TenantID, CredentialID, Kind, Scopes}`; use `Company.Get` for the company |
 | `Domains.List`, `Domains.ForLocation` | `Domains.List` and `Locations.Domains` return `[]Storefront` (not paginated) |
 | `Agreements.Active()` (one item) | `Agreements.Active(params)` returns a `Page[Agreement]` |

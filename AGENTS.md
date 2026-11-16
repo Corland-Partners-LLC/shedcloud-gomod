@@ -34,6 +34,11 @@ shedcloud-gomod/
 │   ├── customers.go, payments.go, locations.go
 │   ├── catalog.go         # products (read), pricing resolve, agreements
 │   ├── admin.go           # users/roles, domains, documents, events, configurator sessions
+│   ├── products_write.go, catalog_ext.go, promo_codes.go, delivery_offers.go, rto_agreements.go,
+│   │   orders_signature.go, sold_upgrades.go, inventory.go, stock_sale_requests.go, stock_ops.go,
+│   │   service_tickets.go, notes_audit.go, communications.go, opportunities.go, documents_write.go,
+│   │   banking.go, finance_reports.go, commissions.go, freight_assets.go, fx_consolidation.go,
+│   │   subscriptions.go, mrp_quality.go, analytics_edi.go, engineering_changes.go   # the rest of the ERP routes
 │   └── *_test.go          # httptest, one fake ERP per call (helpers_test.go)
 ├── examples/list-stock-units/
 ├── scripts/test-partner-api/   # smoke test against a real host
@@ -63,6 +68,6 @@ shedcloud-gomod/
 4. Add an `httptest` test (`fakeERP` in `helpers_test.go`): method, path, query/body keys, decoded fields.
 5. Document it in `README.md` (Resources table) and `CHANGELOG.md`.
 
-## Pending ERP resources (not wrapped)
+## Coverage
 
-See the list in `README.md` ("ERP resources the SDK does not cover yet").
+Every `/partner/v1` route of the ERP `openapi.yaml` has a method; `routes_test.go` and the per-resource tests pin method + path. When the ERP adds a route, add it here (see "Adding a resource").
